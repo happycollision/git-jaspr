@@ -3,7 +3,7 @@ package sims.michael.gitkspr
 import org.slf4j.LoggerFactory
 
 class GitKspr(
-    private val ghClient: GithubClient,
+    private val ghClient: GitHubClient,
     private val gitClient: JGitClient,
     private val config: Config,
     private val newUuid: () -> String = { generateUuid() },

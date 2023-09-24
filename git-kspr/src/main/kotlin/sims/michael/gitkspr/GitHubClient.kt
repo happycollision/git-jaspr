@@ -6,8 +6,8 @@ import sims.michael.gitkspr.generated.CreatePullRequest
 import sims.michael.gitkspr.generated.GetRepositoryId
 import sims.michael.gitkspr.generated.inputs.CreatePullRequestInput
 
-class GithubClient(private val delegate: GraphQLClient<*>, private val gitHubInfo: GitHubInfo) {
-    private val logger = LoggerFactory.getLogger(GithubClient::class.java)
+class GitHubClient(private val delegate: GraphQLClient<*>, private val gitHubInfo: GitHubInfo) {
+    private val logger = LoggerFactory.getLogger(GitHubClient::class.java)
     suspend fun createPullRequest(baseRefName: String, headRefName: String, title: String) {
         logger.trace("createPullRequest {} {} {}", baseRefName, headRefName, title)
         val repositoryId = fetchRepositoryId(gitHubInfo)

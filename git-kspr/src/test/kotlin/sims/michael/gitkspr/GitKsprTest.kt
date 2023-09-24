@@ -37,7 +37,7 @@ class GitKsprTest {
         localRepoDir.resolve("README.txt").writeText("Change the file without committing it")
 
         assertThrows<IllegalStateException> {
-            runBlocking { GitKspr(mock<GithubClient>(), local, config(localRepoDir)).push() }
+            runBlocking { GitKspr(mock<GitHubClient>(), local, config(localRepoDir)).push() }
         }
     }
 
@@ -59,7 +59,7 @@ class GitKsprTest {
         val messageB = "New remote commit"
         remote.add(readme).commit(messageB)
 
-        runBlocking { GitKspr(mock<GithubClient>(), local, config(localRepoDir)).push() }
+        runBlocking { GitKspr(mock<GitHubClient>(), local, config(localRepoDir)).push() }
 
         assertEquals(listOf(messageB, messageA), local.log("origin/main").map(Commit::shortMessage))
     }
@@ -100,7 +100,7 @@ class GitKsprTest {
                 val collector = CommitCollector(local).apply(collectCommits)
                 val ids = uuidIterator()
                 runBlocking {
-                    GitKspr(mock<GithubClient>(), local, config(localRepoDir), ids::next).push()
+                    GitKspr(mock<GitHubClient>(), local, config(localRepoDir), ids::next).push()
                 }
                 assertEquals(expected, local.logRange("HEAD~${collector.numCommits}", "HEAD").map(Commit::id))
             }
@@ -127,7 +127,7 @@ class GitKsprTest {
         }
 
         val ids = uuidIterator()
-        runBlocking { GitKspr(mock<GithubClient>(), local, config(localRepoDir), ids::next).push() }
+        runBlocking { GitKspr(mock<GitHubClient>(), local, config(localRepoDir), ids::next).push() }
 
         val prefix = "refs/heads/${REMOTE_BRANCH_PREFIX}"
         assertEquals(

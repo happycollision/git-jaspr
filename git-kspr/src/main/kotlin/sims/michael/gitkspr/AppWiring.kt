@@ -41,13 +41,13 @@ class DefaultAppWiring(
         GraphQLKtorClient(URL("https://api.github.com/graphql"), httpClient)
     }
 
-    val githubClient: GithubClient by lazy {
-        GithubClient(graphQLClient, config.gitHubInfo)
+    val gitHubClient: GitHubClient by lazy {
+        GitHubClient(graphQLClient, config.gitHubInfo)
     }
 
     override val json: Json = Json {
         prettyPrint = true
     }
 
-    override val gitKspr: GitKspr by lazy { GitKspr(githubClient, gitClient, config) }
+    override val gitKspr: GitKspr by lazy { GitKspr(gitHubClient, gitClient, config) }
 }
