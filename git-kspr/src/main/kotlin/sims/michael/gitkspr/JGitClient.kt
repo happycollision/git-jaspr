@@ -8,7 +8,7 @@ import java.io.File
 import org.eclipse.jgit.transport.RefSpec as JRefSpec
 
 // TODO consider extracting an interface from this once the implementation settles
-class JGitClient(private val workingDirectory: File) {
+class JGitClient(val workingDirectory: File) {
     private val logger = LoggerFactory.getLogger(JGitClient::class.java)
 
     fun log(revision: String): List<Commit> = useGit { git ->
