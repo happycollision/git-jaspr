@@ -53,6 +53,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-engine:5.9.1")
     testImplementation("org.eclipse.jgit:org.eclipse.jgit.junit:6.3.0.202209071007-r")
     testImplementation("com.nhaarman.mockitokotlin2:mockito-kotlin:2.2.0")
+    testImplementation("org.mockito:mockito-inline:2.23.0")
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
