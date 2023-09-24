@@ -10,7 +10,7 @@ import org.eclipse.jgit.transport.RefSpec as JRefSpec
 class JGitClient(private val workingDirectory: File) {
     private val logger = LoggerFactory.getLogger(JGitClient::class.java)
     fun getLocalCommitStack(remoteName: String, localObjectName: String, targetRefName: String): List<Commit> {
-        logger.trace("getLocalCommitStack {} {} {}", remoteName,localObjectName,targetRefName)
+        logger.trace("getLocalCommitStack {} {} {}", remoteName, localObjectName, targetRefName)
         return Git.open(workingDirectory).use { git ->
             git.fetch().setRemote(remoteName).call()
             val r = git.repository

@@ -1,10 +1,5 @@
 package sims.michael.gitkspr
 
-import com.expediagroup.graphql.client.GraphQLClient
-import com.expediagroup.graphql.client.serialization.types.KotlinxGraphQLResponse
-import com.expediagroup.graphql.client.types.GraphQLClientRequest
-import com.nhaarman.mockitokotlin2.any
-import com.nhaarman.mockitokotlin2.doReturn
 import com.nhaarman.mockitokotlin2.mock
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.junit.MockSystemReader
@@ -15,12 +10,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
 import org.zeroturnaround.exec.ProcessExecutor
-import sims.michael.gitkspr.generated.GetPullRequests
-import sims.michael.gitkspr.generated.ID
-import sims.michael.gitkspr.generated.getpullrequests.PullRequestConnection
-import sims.michael.gitkspr.generated.getpullrequests.PullRequestConnection2
-import sims.michael.gitkspr.generated.getpullrequests.Repository2
-import sims.michael.gitkspr.generated.getpullrequests.User
 import sims.michael.gitkspr.testing.toStringWithClickableURI
 import java.io.File
 import java.nio.file.Files
@@ -48,27 +37,15 @@ class GitKsprTest {
         }
 
         localRepoDir.printGitCommand("git", "log", "--pretty=fuller")
-        val fake = KotlinxGraphQLResponse(
-            GetPullRequests.Result(
-                User(
-                    "blah",
-                    PullRequestConnection(
-                        emptyList(),
-                    ),
-                ),
-                Repository2(ID(), PullRequestConnection2(emptyList())),
-            ),
-        )
+        localRepoDir.gitLog()
 
-        val graphQLClient = mock<GraphQLClient<*>> {
-            onBlocking { execute(any<GraphQLClientRequest<*>>(), any()) } doReturn fake
-        }
+        val graphQLClient = mock<GithubClient>()
 
         val kspr = GitKspr(graphQLClient, local, config(localRepoDir))
         runBlocking {
             kspr.push(RefSpec("HEAD", "main"))
         }
-        localRepoDir.printGitCommand("git", "log", "--pretty=fuller")
+        localRepoDir.gitLog()
     }
 
     private fun config(localRepo: File) = Config(localRepo, "origin", GitHubInfo("host", "owner", "name"))
@@ -94,6 +71,8 @@ private fun File.initRepoWithInitialCommit() {
     resolve(readme).writeText("This is a test repo.\n")
     git.add(readme).commit("Initial commit")
 }
+
+private fun File.gitLog() = printGitCommand("git", "log", "--pretty=fuller")
 
 @Suppress("SameParameterValue")
 private fun File.printGitCommand(vararg command: String) {

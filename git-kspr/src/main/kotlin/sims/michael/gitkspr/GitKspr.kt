@@ -1,57 +1,53 @@
 package sims.michael.gitkspr
 
-import com.expediagroup.graphql.client.GraphQLClient
-import sims.michael.gitkspr.generated.CreatePullRequest
-import sims.michael.gitkspr.generated.GetRepositoryId
-import sims.michael.gitkspr.generated.inputs.CreatePullRequestInput
+import org.slf4j.LoggerFactory
 
 class GitKspr(
-    private val githubClient: GraphQLClient<*>,
+    private val ghClient: GithubClient,
     private val gitClient: JGitClient,
     private val config: Config,
     private val newUuid: () -> String = { generateUuid() },
 ) {
 
+    private val logger = LoggerFactory.getLogger(GitKspr::class.java)
+
     // git kspr push [[local-object:]target-ref]
     suspend fun push(refSpec: RefSpec) {
+        logger.trace("push {}", refSpec)
+
         // TODO check working directory is clean
         val remoteName = config.remoteName
         gitClient.fetch(remoteName)
 
         fun getLocalCommitStack() = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
-        addCommitIdsToLocalStack(getLocalCommitStack())
-        gitClient.push(getLocalCommitStack().map(Commit::getRefSpec))
+        val stack = addCommitIdsToLocalStack(getLocalCommitStack()) ?: getLocalCommitStack()
+        gitClient.push(stack.map(Commit::getRefSpec))
 
-        val ghInfo = config.gitHubInfo
-        val repoIdResponse = githubClient.execute(GetRepositoryId(GetRepositoryId.Variables(ghInfo.owner, ghInfo.name)))
-        val repositoryId = repoIdResponse.data!!.repository!!.id
-
-        val response = githubClient.execute(
-            CreatePullRequest(
-                CreatePullRequest.Variables(
-                    CreatePullRequestInput(
-                        baseRefName = refSpec.remoteRef,
-                        headRefName = getLocalCommitStack().first().getRefSpec().remoteRef,
-                        repositoryId = repositoryId,
-                        title = "some title",
-                    ),
-                ),
-            ),
+        ghClient.createPullRequest(
+            baseRefName = refSpec.remoteRef,
+            headRefName = stack.first().getRefSpec().remoteRef,
+            title = "some title",
         )
-        println(response)
     }
 
-    private fun addCommitIdsToLocalStack(commits: List<Commit>) {
+    private fun addCommitIdsToLocalStack(commits: List<Commit>): List<Commit>? {
+        logger.trace("addCommitIdsToLocalStack {}", commits)
         val indexOfFirstCommitMissingId = commits.indexOfFirst { it.id == null }
-        if (indexOfFirstCommitMissingId != -1) {
+        if (indexOfFirstCommitMissingId == -1) {
+            logger.trace("No commits are missing IDs")
+            return commits
+        } else {
             val missing = commits.slice(indexOfFirstCommitMissingId until commits.size)
-            gitClient.checkout("${missing.first().hash}^")
+            val refName = "${missing.first().hash}^"
+            gitClient.checkout(refName)
             for (commit in missing) {
                 gitClient.cherryPick(commit)
                 if (commit.id == null) {
-                    gitClient.setCommitId(newUuid())
+                    val commitId = newUuid()
+                    gitClient.setCommitId(commitId)
                 }
             }
+            return null
         }
     }
 }

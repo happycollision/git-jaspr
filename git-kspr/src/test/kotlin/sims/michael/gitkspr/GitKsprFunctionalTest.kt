@@ -18,11 +18,9 @@ class GitKsprFunctionalTest {
 
     @Test
     fun pushOneNewCommit(testInfo: TestInfo) {
-        val dir = createTempDir()
+        val gitDir = createTempDir().resolve(REPO_NAME)
+        logger.info("{}", gitDir.toStringWithClickableURI())
 
-        logger.info("Temp dir created in {}", dir.toStringWithClickableURI())
-
-        val gitDir = dir.resolve(REPO_NAME)
         val git = JGitClient(gitDir).clone(REPO_URI)
         val testName = testInfo.displayName.substringBefore("(")
         val testFileName = "$testName-${generateUuid()}.txt"
