@@ -108,9 +108,15 @@ class GitKsprTest {
     }
 
     @Test
-    fun push() {
+    fun `push pushes to expected remote branch names`() {
         val tempDir = createTempDir()
-        val remoteRepoDir = tempDir.resolve("test-remote").apply(File::initRepoWithInitialCommit)
+        val remoteRepoDir = tempDir.resolve("test-remote")
+        val remote = JGitClient(remoteRepoDir).init()
+        val readme = "README.txt"
+        val remoteReadMe = remoteRepoDir.resolve(readme)
+        remoteReadMe.writeText("This is a test repo.\n")
+        val messageA = "Initial commit"
+        remote.add(readme).commit(messageA)
 
         val localRepoDir = tempDir.resolve("test-local")
         val local = JGitClient(localRepoDir).clone(remoteRepoDir.toURI().toString()).checkout("development", true)
@@ -120,11 +126,14 @@ class GitKsprTest {
             local.add(filePattern).commit("This is file number $num")
         }
 
-        localRepoDir.printGitCommand("git", "log", "--pretty=fuller")
-        localRepoDir.gitLog()
+        val ids = uuidIterator()
+        runBlocking { GitKspr(mock<GithubClient>(), local, config(localRepoDir), ids::next).push() }
 
-        runBlocking { GitKspr(mock<GithubClient>(), local, config(localRepoDir)).push() }
-        localRepoDir.gitLog()
+        val prefix = "refs/heads/${REMOTE_BRANCH_PREFIX}"
+        assertEquals(
+            (0..2).associate { "$prefix$it" to it.toString() },
+            remote.commitIdsByBranch(),
+        )
     }
 
     private class CommitCollector(private val git: JGitClient) {
