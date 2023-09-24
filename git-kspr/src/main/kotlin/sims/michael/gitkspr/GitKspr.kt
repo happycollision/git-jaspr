@@ -57,4 +57,4 @@ class GitKspr(
 }
 
 const val REMOTE_BRANCH_PREFIX = "kspr/"
-private fun Commit.getRefSpec(): RefSpec = RefSpec(hash, "${REMOTE_BRANCH_PREFIX}$id")
+fun Commit.getRefSpec(): RefSpec = RefSpec(hash, remoteRefName)
