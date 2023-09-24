@@ -18,3 +18,5 @@ data class GitHubInfo(val host: String, val owner: String, val name: String)
 data class Commit(val hash: String, val shortMessage: String, val id: String?)
 
 data class RefSpec(val localRef: String, val remoteRef: String)
+
+class GitKsprException(override val message: String) : RuntimeException(message)

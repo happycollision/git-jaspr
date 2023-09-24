@@ -12,6 +12,8 @@ import com.github.ajalt.clikt.sources.ValueSource.Companion.getKey
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import java.io.File
+import java.lang.IllegalArgumentException
+import java.lang.IllegalStateException
 
 /*
 git kspr push [remote-name] [[local-object:]target-ref]
@@ -46,8 +48,10 @@ class Push : GitKsprCommand() { // Common options/arguments are inherited from t
 
     override fun run() {
         super.run()
-        runBlocking {
-            appWiring.gitKspr.push(refSpec)
+        runCatching {
+            runBlocking {
+                appWiring.gitKspr.push(refSpec)
+            }
         }
     }
 }
@@ -152,6 +156,20 @@ abstract class GitKsprCommand : CliktCommand() {
                 "Couldn't infer github info from $remoteName URI: $remoteUri"
             }
             GitHubInfo(host ?: fromUri.host, owner ?: fromUri.owner, name ?: fromUri.name)
+        }
+    }
+
+    fun printError(e: Exception): Nothing = throw PrintMessage(e.message.orEmpty(), 255, true)
+
+    inline fun runCatching(block: () -> Unit) {
+        try {
+            block()
+        } catch (e: GitKsprException) {
+            printError(e)
+        } catch (e: IllegalStateException) {
+            printError(e)
+        } catch (e: IllegalArgumentException) {
+            printError(e)
         }
     }
 
