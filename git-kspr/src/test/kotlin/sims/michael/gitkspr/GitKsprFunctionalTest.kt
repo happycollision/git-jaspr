@@ -28,8 +28,11 @@ class GitKsprFunctionalTest {
         git.add(testFileName).commit(testFileName)
 
         System.setProperty(WORKING_DIR_PROPERTY_NAME, gitDir.absolutePath)
-        main(arrayOf("push"))
+        push()
     }
+
+    /** main -> [Push.run] -> [GitKspr.push] */
+    private fun push() = main(arrayOf("push"))
 
     private fun createTempDir() = checkNotNull(Files.createTempDirectory(GitKsprTest::class.java.simpleName).toFile())
 }
