@@ -11,6 +11,19 @@ import org.eclipse.jgit.transport.RefSpec as JRefSpec
 class JGitClient(val workingDirectory: File) {
     private val logger = LoggerFactory.getLogger(JGitClient::class.java)
 
+    fun commitIdsByBranch(): Map<String, String?> = useGit { git ->
+        git
+            .branchList()
+            .call()
+            .associate { ref ->
+                val name = ref.name
+                name to log(name, 1).first()
+            }
+            .mapValues { (_, commit) -> commit.id }
+            .filterKeys { it.startsWith("${Constants.R_HEADS}$REMOTE_BRANCH_PREFIX") }
+            .toSortedMap()
+    }
+
     fun log(revision: String, maxCount: Int = -1): List<Commit> = useGit { git ->
         git
             .log()
