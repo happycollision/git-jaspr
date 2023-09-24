@@ -27,8 +27,11 @@ class GitKspr(
         val stack = addCommitIdsToLocalStack(getLocalCommitStack()) ?: getLocalCommitStack()
         gitClient.push(stack.map(Commit::getRefSpec))
 
-        val headRefName = stack.first().getRefSpec().remoteRef
-        ghClient.createPullRequest(targetRef, headRefName, title = "some title")
+        val headToPush = stack.firstOrNull()
+        if (headToPush != null) {
+            val headRefName = stack.first().getRefSpec().remoteRef
+            ghClient.createPullRequest(targetRef, headRefName, title = "some title")
+        }
     }
 
     private fun addCommitIdsToLocalStack(commits: List<Commit>): List<Commit>? {
