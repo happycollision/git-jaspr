@@ -2,6 +2,7 @@ package sims.michael.gitkspr
 
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.lib.Constants
+import org.eclipse.jgit.revwalk.RevCommit
 import org.slf4j.LoggerFactory
 import java.io.File
 import org.eclipse.jgit.transport.RefSpec as JRefSpec
@@ -9,6 +10,10 @@ import org.eclipse.jgit.transport.RefSpec as JRefSpec
 // TODO consider extracting an interface from this once the implementation settles
 class JGitClient(private val workingDirectory: File) {
     private val logger = LoggerFactory.getLogger(JGitClient::class.java)
+
+    fun log(revision: String): List<Commit> = useGit { git ->
+        git.log().add(git.repository.resolve(revision)).call().toList().map { revCommit -> revCommit.toCommit(git) }
+    }
 
     fun workingDirectoryIsClean(): Boolean {
         logger.trace("workingDirectoryIsClean")
@@ -18,7 +23,6 @@ class JGitClient(private val workingDirectory: File) {
     fun getLocalCommitStack(remoteName: String, localObjectName: String, targetRefName: String): List<Commit> {
         logger.trace("getLocalCommitStack {} {} {}", remoteName, localObjectName, targetRefName)
         return useGit { git ->
-            git.fetch().setRemote(remoteName).call()
             val r = git.repository
             val trackingBranch = requireNotNull(r.resolve("$remoteName/$targetRefName")) {
                 "$targetRefName does not exist in the remote"
@@ -33,15 +37,7 @@ class JGitClient(private val workingDirectory: File) {
             require(mergeCommits.isEmpty()) {
                 "Merge commits are not supported ${mergeCommits.map { objectReader.abbreviate(it.id).name() }}"
             }
-            revCommits
-                .map { commit ->
-                    Commit(
-                        objectReader.abbreviate(commit.id).name(),
-                        commit.shortMessage,
-                        commit.getFooterLines(COMMIT_ID_LABEL).firstOrNull(),
-                    )
-                }
-                .reversed()
+            revCommits.map { revCommit -> revCommit.toCommit(git) }.reversed()
         }
     }
 
@@ -124,6 +120,16 @@ class JGitClient(private val workingDirectory: File) {
     }
 
     private inline fun <T> useGit(block: (Git) -> T): T = Git.open(workingDirectory).use(block)
+
+    private fun RevCommit.toCommit(git: Git): Commit {
+        val r = git.repository
+        val objectReader = r.newObjectReader()
+        return Commit(
+            objectReader.abbreviate(id).name(),
+            shortMessage,
+            getFooterLines(COMMIT_ID_LABEL).firstOrNull(),
+        )
+    }
 
     companion object {
         private const val COMMIT_ID_LABEL = "commit-id"
