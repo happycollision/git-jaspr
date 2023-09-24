@@ -15,7 +15,10 @@ class GitKspr(
     suspend fun push(refSpec: RefSpec = RefSpec(DEFAULT_LOCAL_OBJECT, DEFAULT_TARGET_REF)) {
         logger.trace("push {}", refSpec)
 
-        // TODO check working directory is clean
+        check(gitClient.workingDirectoryIsClean()) {
+            "Your working directory has local changes. Please commit or stash them and re-run the command."
+        }
+
         val remoteName = config.remoteName
         gitClient.fetch(remoteName)
 

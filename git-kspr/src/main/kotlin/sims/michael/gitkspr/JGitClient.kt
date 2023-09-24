@@ -9,6 +9,12 @@ import org.eclipse.jgit.transport.RefSpec as JRefSpec
 // TODO consider extracting an interface from this once the implementation settles
 class JGitClient(private val workingDirectory: File) {
     private val logger = LoggerFactory.getLogger(JGitClient::class.java)
+
+    fun workingDirectoryIsClean(): Boolean {
+        logger.trace("workingDirectoryIsClean")
+        return useGit { git -> git.status().call().isClean }
+    }
+
     fun getLocalCommitStack(remoteName: String, localObjectName: String, targetRefName: String): List<Commit> {
         logger.trace("getLocalCommitStack {} {} {}", remoteName, localObjectName, targetRefName)
         return useGit { git ->

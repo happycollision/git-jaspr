@@ -8,10 +8,12 @@ import org.eclipse.jgit.lib.Constants.GIT_COMMITTER_NAME_KEY
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.slf4j.LoggerFactory
 import org.zeroturnaround.exec.ProcessExecutor
 import sims.michael.gitkspr.testing.toStringWithClickableURI
 import java.io.File
+import java.lang.IllegalStateException
 import java.nio.file.Files
 
 class GitKsprTest {
@@ -22,10 +24,22 @@ class GitKsprTest {
     fun setUp() = setGitCommitterInfo("Frank Grimes", "grimey@example.com")
 
     @Test
+    fun `push fails unless workdir is clean`() {
+        val tempDir = createTempDir()
+        val remoteRepoDir = tempDir.resolve("test-remote").apply(File::initRepoWithInitialCommit)
+
+        val localRepoDir = tempDir.resolve("test-local")
+        val local = JGitClient(localRepoDir).clone(remoteRepoDir.toURI().toString()).checkout("development", true)
+        localRepoDir.resolve("README.txt").writeText("Change the file without committing it")
+
+        assertThrows<IllegalStateException> {
+            runBlocking { GitKspr(mock<GithubClient>(), local, config(localRepoDir)).push() }
+        }
+    }
+
+    @Test
     fun push() {
         val tempDir = createTempDir()
-        logger.info("Temp dir created in {}", tempDir.toStringWithClickableURI())
-
         val remoteRepoDir = tempDir.resolve("test-remote").apply(File::initRepoWithInitialCommit)
 
         val localRepoDir = tempDir.resolve("test-local")
@@ -39,9 +53,7 @@ class GitKsprTest {
         localRepoDir.printGitCommand("git", "log", "--pretty=fuller")
         localRepoDir.gitLog()
 
-        val graphQLClient = mock<GithubClient>()
-
-        runBlocking { GitKspr(graphQLClient, local, config(localRepoDir)).push() }
+        runBlocking { GitKspr(mock<GithubClient>(), local, config(localRepoDir)).push() }
         localRepoDir.gitLog()
     }
 
@@ -59,7 +71,10 @@ class GitKsprTest {
             )
     }
 
-    private fun createTempDir() = checkNotNull(Files.createTempDirectory(GitKsprTest::class.java.simpleName).toFile())
+    private fun createTempDir() =
+        checkNotNull(Files.createTempDirectory(GitKsprTest::class.java.simpleName).toFile()).also {
+            logger.info("Temp dir created in {}", it.toStringWithClickableURI())
+        }
 }
 
 private fun File.initRepoWithInitialCommit() {
