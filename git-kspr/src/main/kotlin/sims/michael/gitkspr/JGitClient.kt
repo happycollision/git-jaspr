@@ -15,6 +15,12 @@ class JGitClient(private val workingDirectory: File) {
         git.log().add(git.repository.resolve(revision)).call().toList().map { revCommit -> revCommit.toCommit(git) }
     }
 
+    fun logRange(since: String, until: String): List<Commit> = useGit { git ->
+        val r = git.repository
+        val commits = git.log().addRange(r.resolve(since), r.resolve(until)).call().toList()
+        commits.map { revCommit -> revCommit.toCommit(git) }
+    }
+
     fun workingDirectoryIsClean(): Boolean {
         logger.trace("workingDirectoryIsClean")
         return useGit { git -> git.status().call().isClean }
