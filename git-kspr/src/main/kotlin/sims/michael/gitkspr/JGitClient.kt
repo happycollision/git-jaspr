@@ -130,8 +130,4 @@ class JGitClient(private val workingDirectory: File) {
             getFooterLines(COMMIT_ID_LABEL).firstOrNull(),
         )
     }
-
-    companion object {
-        private const val COMMIT_ID_LABEL = "commit-id"
-    }
 }
