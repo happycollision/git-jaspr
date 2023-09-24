@@ -7,7 +7,10 @@ import org.eclipse.jgit.lib.Constants.GIT_COMMITTER_EMAIL_KEY
 import org.eclipse.jgit.lib.Constants.GIT_COMMITTER_NAME_KEY
 import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.DynamicTest
+import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.api.assertThrows
 import org.slf4j.LoggerFactory
 import org.zeroturnaround.exec.ProcessExecutor
@@ -61,6 +64,49 @@ class GitKsprTest {
         assertEquals(listOf(messageB, messageA), local.log("origin/main").map(Commit::shortMessage))
     }
 
+    @TestFactory
+    fun `push adds commit IDs`(): List<DynamicTest> {
+        data class Test(val name: String, val expected: List<String>, val collectCommits: CommitCollector.() -> Unit)
+        return listOf(
+            Test("all commits missing IDs", listOf("2", "1", "0")) { (0..2).forEach(::addCommit) },
+            Test("only recent commits missing IDs", listOf("2", "1", "0", "B", "A")) {
+                addCommit(1, "A")
+                addCommit(2, "B")
+
+                val numCommits = 5
+                for (num in (3..numCommits)) {
+                    addCommit(num, null)
+                }
+            },
+            Test("only commits in the middle missing IDs", listOf("D", "C", "2", "1", "0", "B", "A")) {
+                addCommit(1, "A")
+                addCommit(2, "B")
+
+                for (num in (3..5)) {
+                    addCommit(num, null)
+                }
+
+                addCommit(6, "C")
+                addCommit(7, "D")
+            },
+        ).map { (name, expected, collectCommits) ->
+            dynamicTest(name) {
+                val tempDir = createTempDir()
+                val remoteRepoDir = tempDir.resolve("test-remote").apply(File::initRepoWithInitialCommit)
+                val localRepoDir = tempDir.resolve("test-local")
+                val local = JGitClient(localRepoDir)
+                    .clone(remoteRepoDir.toURI().toString())
+                    .checkout("development", true)
+                val collector = CommitCollector(local).apply(collectCommits)
+                val ids = uuidIterator()
+                runBlocking {
+                    GitKspr(mock<GithubClient>(), local, config(localRepoDir), ids::next).push()
+                }
+                assertEquals(expected, local.logRange("HEAD~${collector.numCommits}", "HEAD").map(Commit::id))
+            }
+        }
+    }
+
     @Test
     fun push() {
         val tempDir = createTempDir()
@@ -79,6 +125,17 @@ class GitKsprTest {
 
         runBlocking { GitKspr(mock<GithubClient>(), local, config(localRepoDir)).push() }
         localRepoDir.gitLog()
+    }
+
+    private class CommitCollector(private val git: JGitClient) {
+        var numCommits = 0
+        fun addCommit(num: Int, id: String? = null) {
+            val filePattern = "$num.txt"
+            git.workingDirectory.resolve(filePattern).writeText("This is file number $num.\n")
+            val message = "This is file number $num" + if (id != null) "\n\n$COMMIT_ID_LABEL: $id" else ""
+            git.add(filePattern).commit(message)
+            numCommits++
+        }
     }
 
     private fun config(localRepo: File) = Config(localRepo, "origin", GitHubInfo("host", "owner", "name"))
@@ -100,6 +157,8 @@ class GitKsprTest {
             logger.info("Temp dir created in {}", it.toStringWithClickableURI())
         }
 }
+
+private fun uuidIterator() = (0..Int.MAX_VALUE).asSequence().map(Int::toString).iterator()
 
 private fun File.initRepoWithInitialCommit() {
     val git = JGitClient(this).init()
