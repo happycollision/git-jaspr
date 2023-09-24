@@ -17,7 +17,7 @@ class GitKsprFunctionalTest {
     private val logger = LoggerFactory.getLogger(GitKsprTest::class.java)
 
     @Test
-    fun pushOneNewCommit(testInfo: TestInfo) {
+    fun `push one new commit`(testInfo: TestInfo) {
         val gitDir = createTempDir().resolve(REPO_NAME)
         logger.info("{}", gitDir.toStringWithClickableURI())
 
