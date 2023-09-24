@@ -11,8 +11,14 @@ import org.eclipse.jgit.transport.RefSpec as JRefSpec
 class JGitClient(val workingDirectory: File) {
     private val logger = LoggerFactory.getLogger(JGitClient::class.java)
 
-    fun log(revision: String): List<Commit> = useGit { git ->
-        git.log().add(git.repository.resolve(revision)).call().toList().map { revCommit -> revCommit.toCommit(git) }
+    fun log(revision: String, maxCount: Int = -1): List<Commit> = useGit { git ->
+        git
+            .log()
+            .add(git.repository.resolve(revision))
+            .setMaxCount(maxCount)
+            .call()
+            .toList()
+            .map { revCommit -> revCommit.toCommit(git) }
     }
 
     fun logRange(since: String, until: String): List<Commit> = useGit { git ->
