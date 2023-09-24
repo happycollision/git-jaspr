@@ -11,7 +11,7 @@ class JGitClient(private val workingDirectory: File) {
     private val logger = LoggerFactory.getLogger(JGitClient::class.java)
     fun getLocalCommitStack(remoteName: String, localObjectName: String, targetRefName: String): List<Commit> {
         logger.trace("getLocalCommitStack {} {} {}", remoteName, localObjectName, targetRefName)
-        return Git.open(workingDirectory).use { git ->
+        return useGit { git ->
             git.fetch().setRemote(remoteName).call()
             val r = git.repository
             val trackingBranch = requireNotNull(r.resolve("$remoteName/$targetRefName")) {
@@ -41,12 +41,12 @@ class JGitClient(private val workingDirectory: File) {
 
     fun fetch(remoteName: String) {
         logger.trace("fetch {}", remoteName)
-        Git.open(workingDirectory).use { git -> git.fetch().setRemote(remoteName).call() }
+        useGit { git -> git.fetch().setRemote(remoteName).call() }
     }
 
     fun checkout(refName: String, createBranch: Boolean = false) = apply {
         logger.trace("checkout {}{}", refName, if (createBranch) " (create)" else "")
-        Git.open(workingDirectory).use { git ->
+        useGit { git ->
             val name = if (createBranch) refName else git.repository.resolve(refName).name
             git.checkout().setName(name).setCreateBranch(createBranch).call()
         }
@@ -57,20 +57,20 @@ class JGitClient(private val workingDirectory: File) {
     }
 
     fun add(filePattern: String) = apply {
-        Git.open(workingDirectory).use { git ->
+        useGit { git ->
             git.add().addFilepattern(filePattern).call()
         }
     }
 
     fun commit(message: String) {
-        Git.open(workingDirectory).use { git ->
+        useGit { git ->
             git.commit().setMessage(message).call()
         }
     }
 
     fun setCommitId(commitId: String) {
         logger.trace("setCommitId {}", commitId)
-        Git.open(workingDirectory).use { git ->
+        useGit { git ->
             val r = git.repository
             val head = r.parseCommit(r.findRef(Constants.HEAD).objectId)
             require(head.getFooterLines(COMMIT_ID_LABEL).isEmpty())
@@ -92,7 +92,7 @@ class JGitClient(private val workingDirectory: File) {
 
     fun cherryPick(commit: Commit) {
         logger.trace("cherryPick {}", commit)
-        Git.open(workingDirectory).use { git ->
+        useGit { git ->
             git.cherryPick().include(git.repository.resolve(commit.hash)).call()
             // TODO check results and things
         }
@@ -100,7 +100,7 @@ class JGitClient(private val workingDirectory: File) {
 
     fun push(refSpecs: List<RefSpec>) {
         logger.trace("push {}", refSpecs)
-        Git.open(workingDirectory).use { git ->
+        useGit { git ->
             val specs = refSpecs.map { (localRef, remoteRef) ->
                 JRefSpec("$localRef:${Constants.R_HEADS}$remoteRef")
             }
@@ -113,9 +113,11 @@ class JGitClient(private val workingDirectory: File) {
         }
     }
 
-    fun getRemoteUriOrNull(remoteName: String): String? = Git.open(workingDirectory).use { git ->
+    fun getRemoteUriOrNull(remoteName: String): String? = useGit { git ->
         git.remoteList().call().singleOrNull { it.name == remoteName }?.urIs?.firstOrNull()?.toASCIIString()
     }
+
+    private inline fun <T> useGit(block: (Git) -> T): T = Git.open(workingDirectory).use(block)
 
     companion object {
         private const val COMMIT_ID_LABEL = "commit-id"
