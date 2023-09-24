@@ -15,6 +15,7 @@ import sims.michael.gitkspr.testing.toStringWithClickableURI
 import java.io.File
 import java.lang.IllegalStateException
 import java.nio.file.Files
+import kotlin.test.assertEquals
 
 class GitKsprTest {
 
@@ -35,6 +36,29 @@ class GitKsprTest {
         assertThrows<IllegalStateException> {
             runBlocking { GitKspr(mock<GithubClient>(), local, config(localRepoDir)).push() }
         }
+    }
+
+    @Test
+    fun `push fetches from remote`() {
+        val tempDir = createTempDir()
+        val remoteRepoDir = tempDir.resolve("test-remote")
+        val remote = JGitClient(remoteRepoDir).init()
+        val readme = "README.txt"
+        val remoteReadMe = remoteRepoDir.resolve(readme)
+        remoteReadMe.writeText("This is a test repo.\n")
+        val messageA = "Initial commit"
+        remote.add(readme).commit(messageA)
+
+        val localRepoDir = tempDir.resolve("test-local")
+        val local = JGitClient(localRepoDir).clone(remoteRepoDir.toURI().toString()).checkout("development", true)
+
+        remoteReadMe.appendText("Commit 2\n")
+        val messageB = "New remote commit"
+        remote.add(readme).commit(messageB)
+
+        runBlocking { GitKspr(mock<GithubClient>(), local, config(localRepoDir)).push() }
+
+        assertEquals(listOf(messageB, messageA), local.log("origin/main").map(Commit::shortMessage))
     }
 
     @Test
