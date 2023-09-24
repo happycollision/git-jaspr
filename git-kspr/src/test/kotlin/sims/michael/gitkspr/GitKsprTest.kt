@@ -41,10 +41,7 @@ class GitKsprTest {
 
         val graphQLClient = mock<GithubClient>()
 
-        val kspr = GitKspr(graphQLClient, local, config(localRepoDir))
-        runBlocking {
-            kspr.push(RefSpec("HEAD", "main"))
-        }
+        runBlocking { GitKspr(graphQLClient, local, config(localRepoDir)).push() }
         localRepoDir.gitLog()
     }
 

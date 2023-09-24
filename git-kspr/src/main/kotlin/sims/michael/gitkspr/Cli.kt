@@ -190,6 +190,6 @@ object Cli {
 
 const val WORKING_DIR_PROPERTY_NAME = "git-kspr-working-dir"
 const val CONFIG_FILE_NAME = ".git-kspr.properties"
-private const val DEFAULT_LOCAL_OBJECT = "HEAD"
-private const val DEFAULT_TARGET_REF = "main"
+const val DEFAULT_LOCAL_OBJECT = "HEAD"
+const val DEFAULT_TARGET_REF = "main"
 private const val GITHUB_TOKEN_ENV_VAR = "GIT_KSPR_TOKEN"

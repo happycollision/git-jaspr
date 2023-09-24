@@ -12,7 +12,7 @@ class GitKspr(
     private val logger = LoggerFactory.getLogger(GitKspr::class.java)
 
     // git kspr push [[local-object:]target-ref]
-    suspend fun push(refSpec: RefSpec) {
+    suspend fun push(refSpec: RefSpec = RefSpec(DEFAULT_LOCAL_OBJECT, DEFAULT_TARGET_REF)) {
         logger.trace("push {}", refSpec)
 
         // TODO check working directory is clean
