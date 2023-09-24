@@ -2,12 +2,15 @@ package sims.michael.gitkspr
 
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.lib.Constants
+import org.slf4j.LoggerFactory
 import java.io.File
 import org.eclipse.jgit.transport.RefSpec as JRefSpec
 
 // TODO consider extracting an interface from this once the implementation settles
 class JGitClient(private val workingDirectory: File) {
+    private val logger = LoggerFactory.getLogger(JGitClient::class.java)
     fun getLocalCommitStack(remoteName: String, localObjectName: String, targetRefName: String): List<Commit> {
+        logger.trace("getLocalCommitStack {} {} {}", remoteName,localObjectName,targetRefName)
         return Git.open(workingDirectory).use { git ->
             git.fetch().setRemote(remoteName).call()
             val r = git.repository
@@ -37,10 +40,12 @@ class JGitClient(private val workingDirectory: File) {
     }
 
     fun fetch(remoteName: String) {
+        logger.trace("fetch {}", remoteName)
         Git.open(workingDirectory).use { git -> git.fetch().setRemote(remoteName).call() }
     }
 
     fun checkout(refName: String, createBranch: Boolean = false) = apply {
+        logger.trace("checkout {}{}", refName, if (createBranch) " (create)" else "")
         Git.open(workingDirectory).use { git ->
             val name = if (createBranch) refName else git.repository.resolve(refName).name
             git.checkout().setName(name).setCreateBranch(createBranch).call()
@@ -64,6 +69,7 @@ class JGitClient(private val workingDirectory: File) {
     }
 
     fun setCommitId(commitId: String) {
+        logger.trace("setCommitId {}", commitId)
         Git.open(workingDirectory).use { git ->
             val r = git.repository
             val head = r.parseCommit(r.findRef(Constants.HEAD).objectId)
@@ -85,6 +91,7 @@ class JGitClient(private val workingDirectory: File) {
         """.trimIndent()
 
     fun cherryPick(commit: Commit) {
+        logger.trace("cherryPick {}", commit)
         Git.open(workingDirectory).use { git ->
             git.cherryPick().include(git.repository.resolve(commit.hash)).call()
             // TODO check results and things
@@ -92,6 +99,7 @@ class JGitClient(private val workingDirectory: File) {
     }
 
     fun push(refSpecs: List<RefSpec>) {
+        logger.trace("push {}", refSpecs)
         Git.open(workingDirectory).use { git ->
             val specs = refSpecs.map { (localRef, remoteRef) ->
                 JRefSpec("$localRef:${Constants.R_HEADS}$remoteRef")
