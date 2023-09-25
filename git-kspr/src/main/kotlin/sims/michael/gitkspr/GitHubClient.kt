@@ -3,6 +3,7 @@ package sims.michael.gitkspr
 import com.expediagroup.graphql.client.GraphQLClient
 import org.slf4j.LoggerFactory
 import sims.michael.gitkspr.generated.CreatePullRequest
+import sims.michael.gitkspr.generated.GetPullRequests
 import sims.michael.gitkspr.generated.GetRepositoryId
 import sims.michael.gitkspr.generated.inputs.CreatePullRequestInput
 import java.util.concurrent.atomic.AtomicReference
@@ -19,9 +20,33 @@ class GitHubClient(private val delegate: GraphQLClient<*>, private val gitHubInf
             acc + PullRequestInfo(commit, acc.lastOrNull()?.commit?.remoteRefName ?: target)
         }
 
+        val prsById = getPullRequestIdsByCommitId()
         for ((commit, baseRefName) in prsToOpen) {
-            createPullRequest(baseRefName, commit.remoteRefName, commit.shortMessage)
+            if (!prsById.containsKey(commit.id)) {
+                createPullRequest(baseRefName, commit.remoteRefName, commit.shortMessage)
+            }
         }
+    }
+
+    private suspend fun getPullRequestIdsByCommitId(): Map<String, String> {
+        logger.trace("getPullRequestsByCommitId")
+        val regex = "^${REMOTE_BRANCH_PREFIX}(.*?)$".toRegex()
+        return delegate
+            .execute(GetPullRequests(GetPullRequests.Variables(gitHubInfo.owner, gitHubInfo.name)))
+            .data!!
+            .repository!!
+            .pullRequests
+            .nodes!!
+            .filterNotNull()
+            .mapNotNull { pullRequest ->
+                regex
+                    .matchEntire(pullRequest.headRefName)
+                    ?.let { result -> result.groupValues[1] to pullRequest.id }
+            }
+            .toMap()
+            .also { prIdsByCommitId ->
+                logger.trace("Existing PRs: {}", prIdsByCommitId)
+            }
     }
 
     private suspend fun createPullRequest(baseRefName: String, headRefName: String, title: String) {

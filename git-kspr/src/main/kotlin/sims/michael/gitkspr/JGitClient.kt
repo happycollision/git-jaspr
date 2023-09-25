@@ -89,6 +89,14 @@ class JGitClient(val workingDirectory: File) {
         }
     }
 
+    fun commitAmend(newMessage: String? = null) {
+        useGit { git ->
+            val message = newMessage
+                ?: git.log().add(git.repository.resolve(Constants.HEAD)).setMaxCount(1).call().single().fullMessage
+            git.commit().setMessage(message).setAmend(true).call()
+        }
+    }
+
     fun commit(message: String) {
         useGit { git ->
             git.commit().setMessage(message).call()
@@ -152,6 +160,7 @@ class JGitClient(val workingDirectory: File) {
         return Commit(
             objectReader.abbreviate(id).name(),
             shortMessage,
+            fullMessage,
             getFooterLines(COMMIT_ID_LABEL).firstOrNull(),
         )
     }

@@ -15,7 +15,7 @@ data class Config(
 @Serializable
 data class GitHubInfo(val host: String, val owner: String, val name: String)
 
-data class Commit(val hash: String, val shortMessage: String, val id: String?) {
+data class Commit(val hash: String, val shortMessage: String, val fullMessage: String, val id: String?) {
     val remoteRefName: String get() = "$REMOTE_BRANCH_PREFIX$id"
 }
 
