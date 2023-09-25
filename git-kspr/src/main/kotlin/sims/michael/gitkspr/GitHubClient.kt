@@ -8,6 +8,7 @@ import sims.michael.gitkspr.generated.GetRepositoryId
 import sims.michael.gitkspr.generated.inputs.CreatePullRequestInput
 import java.util.concurrent.atomic.AtomicReference
 
+// TODO look into batch requests
 class GitHubClient(private val delegate: GraphQLClient<*>, private val gitHubInfo: GitHubInfo) {
     private val logger = LoggerFactory.getLogger(GitHubClient::class.java)
 
