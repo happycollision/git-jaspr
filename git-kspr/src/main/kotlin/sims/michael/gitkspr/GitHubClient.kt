@@ -5,32 +5,17 @@ import org.slf4j.LoggerFactory
 import sims.michael.gitkspr.generated.CreatePullRequest
 import sims.michael.gitkspr.generated.GetPullRequests
 import sims.michael.gitkspr.generated.GetRepositoryId
+import sims.michael.gitkspr.generated.UpdatePullRequest
 import sims.michael.gitkspr.generated.inputs.CreatePullRequestInput
+import sims.michael.gitkspr.generated.inputs.UpdatePullRequestInput
 import java.util.concurrent.atomic.AtomicReference
 
 // TODO look into batch requests
 class GitHubClient(private val delegate: GraphQLClient<*>, private val gitHubInfo: GitHubInfo) {
     private val logger = LoggerFactory.getLogger(GitHubClient::class.java)
 
-    suspend fun createPullRequests(target: String, stack: List<Commit>) {
-        logger.trace("createPullRequests {}", stack)
-
-        data class PullRequestInfo(val commit: Commit, val baseRefName: String)
-
-        val prsToOpen: List<PullRequestInfo> = stack.fold(listOf()) { acc, commit ->
-            acc + PullRequestInfo(commit, acc.lastOrNull()?.commit?.remoteRefName ?: target)
-        }
-
-        val prsById = getPullRequestIdsByCommitId()
-        for ((commit, baseRefName) in prsToOpen) {
-            if (!prsById.containsKey(commit.id)) {
-                createPullRequest(baseRefName, commit.remoteRefName, commit.shortMessage)
-            }
-        }
-    }
-
-    private suspend fun getPullRequestIdsByCommitId(): Map<String, String> {
-        logger.trace("getPullRequestsByCommitId")
+    suspend fun getPullRequests(): List<PullRequest> {
+        logger.trace("getPullRequests")
         val regex = "^${REMOTE_BRANCH_PREFIX}(.*?)$".toRegex()
         return delegate
             .execute(GetPullRequests(GetPullRequests.Variables(gitHubInfo.owner, gitHubInfo.name)))
@@ -39,27 +24,43 @@ class GitHubClient(private val delegate: GraphQLClient<*>, private val gitHubInf
             .pullRequests
             .nodes!!
             .filterNotNull()
-            .mapNotNull { pullRequest ->
-                regex
-                    .matchEntire(pullRequest.headRefName)
-                    ?.let { result -> result.groupValues[1] to pullRequest.id }
-            }
-            .toMap()
-            .also { prIdsByCommitId ->
-                logger.trace("Existing PRs: {}", prIdsByCommitId)
+            .map { pr ->
+                val commitId = regex
+                    .matchEntire(pr.headRefName)
+                    ?.let { result -> result.groupValues[1] }
+                PullRequest(pr.id, commitId, pr.headRefName, pr.baseRefName, pr.title, pr.body)
             }
     }
 
-    private suspend fun createPullRequest(baseRefName: String, headRefName: String, title: String) {
-        logger.trace("createPullRequest {} {} {}", baseRefName, headRefName, title)
+    suspend fun createPullRequest(pullRequest: PullRequest) {
+        logger.trace("createPullRequest {}", pullRequest)
+        check(pullRequest.id == null) { "Cannot create $pullRequest which already exists" }
         delegate.execute(
             CreatePullRequest(
                 CreatePullRequest.Variables(
                     CreatePullRequestInput(
-                        baseRefName = baseRefName,
-                        headRefName = headRefName,
+                        baseRefName = pullRequest.baseRefName,
+                        headRefName = pullRequest.headRefName,
                         repositoryId = repositoryId(),
-                        title = title,
+                        title = pullRequest.title,
+                        body = pullRequest.body,
+                    ),
+                ),
+            ),
+        )
+    }
+
+    suspend fun updatePullRequest(pullRequest: PullRequest) {
+        logger.trace("updatePullRequest {}", pullRequest)
+        checkNotNull(pullRequest.id) { "Cannot update $pullRequest without an ID" }
+        delegate.execute(
+            UpdatePullRequest(
+                UpdatePullRequest.Variables(
+                    UpdatePullRequestInput(
+                        pullRequestId = pullRequest.id,
+                        baseRefName = pullRequest.baseRefName,
+                        title = pullRequest.title,
+                        body = pullRequest.body,
                     ),
                 ),
             ),

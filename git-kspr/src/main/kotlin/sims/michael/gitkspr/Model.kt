@@ -21,4 +21,15 @@ data class Commit(val hash: String, val shortMessage: String, val fullMessage: S
 
 data class RefSpec(val localRef: String, val remoteRef: String)
 
+data class PullRequest(
+    val id: String?,
+    val commitId: String?,
+    val headRefName: String,
+    val baseRefName: String,
+    val title: String,
+    val body: String,
+    // TODO add state?
+    // TODO add draft?
+)
+
 class GitKsprException(override val message: String) : RuntimeException(message)

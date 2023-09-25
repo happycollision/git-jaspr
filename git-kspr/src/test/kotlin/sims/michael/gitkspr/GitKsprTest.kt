@@ -1,5 +1,6 @@
 package sims.michael.gitkspr
 
+import com.nhaarman.mockitokotlin2.doReturn
 import com.nhaarman.mockitokotlin2.mock
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.junit.MockSystemReader
@@ -37,7 +38,7 @@ class GitKsprTest {
         localRepoDir.resolve("README.txt").writeText("Change the file without committing it")
 
         assertThrows<IllegalStateException> {
-            runBlocking { GitKspr(mock<GitHubClient>(), local, config(localRepoDir)).push() }
+            runBlocking { GitKspr(createDefaultGitHubClient(), local, config(localRepoDir)).push() }
         }
     }
 
@@ -59,7 +60,7 @@ class GitKsprTest {
         val messageB = "New remote commit"
         remote.add(readme).commit(messageB)
 
-        runBlocking { GitKspr(mock<GitHubClient>(), local, config(localRepoDir)).push() }
+        runBlocking { GitKspr(createDefaultGitHubClient(), local, config(localRepoDir)).push() }
 
         assertEquals(listOf(messageB, messageA), local.log("origin/main").map(Commit::shortMessage))
     }
@@ -100,7 +101,7 @@ class GitKsprTest {
                 val collector = CommitCollector(local).apply(collectCommits)
                 val ids = uuidIterator()
                 runBlocking {
-                    GitKspr(mock<GitHubClient>(), local, config(localRepoDir), ids::next).push()
+                    GitKspr(createDefaultGitHubClient(), local, config(localRepoDir), ids::next).push()
                 }
                 assertEquals(expected, local.logRange("HEAD~${collector.numCommits}", "HEAD").map(Commit::id))
             }
@@ -127,13 +128,19 @@ class GitKsprTest {
         }
 
         val ids = uuidIterator()
-        runBlocking { GitKspr(mock<GitHubClient>(), local, config(localRepoDir), ids::next).push() }
+        runBlocking { GitKspr(createDefaultGitHubClient(), local, config(localRepoDir), ids::next).push() }
 
         val prefix = "refs/heads/${REMOTE_BRANCH_PREFIX}"
         assertEquals(
             (0..2).associate { "$prefix$it" to it.toString() },
             remote.commitIdsByBranch(),
         )
+    }
+
+    private fun createDefaultGitHubClient() = mock<GitHubClient> {
+        onBlocking {
+            getPullRequests()
+        } doReturn emptyList()
     }
 
     private class CommitCollector(private val git: JGitClient) {

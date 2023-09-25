@@ -27,7 +27,34 @@ class GitKspr(
         val stack = addCommitIdsToLocalStack(getLocalCommitStack()) ?: getLocalCommitStack()
         gitClient.push(stack.map(Commit::getRefSpec))
 
-        ghClient.createPullRequests(refSpec.remoteRef, stack)
+        val pullRequests = ghClient.getPullRequests().associateBy(PullRequest::commitId)
+
+        val prsToMutate = stack
+            .windowedPairs()
+            .map { (prevCommit, currentCommit) ->
+                PullRequest(
+                    id = pullRequests[currentCommit.id]?.id,
+                    commitId = currentCommit.id,
+                    headRefName = currentCommit.remoteRefName,
+                    // The base ref for the first commit in the stack (prevCommit == null) is the target branch
+                    // (the branch the commit will ultimately merge into). The base ref for each subsequent
+                    // commit is the remote ref name (i.e. kspr/<commit-id>) of the previous commit in the stack
+                    baseRefName = prevCommit?.remoteRefName ?: refSpec.remoteRef,
+                    title = currentCommit.shortMessage,
+                    body = currentCommit.fullMessage,
+                )
+            }
+            .filter { pr -> pullRequests[pr.commitId] != pr }
+
+        for (pr in prsToMutate) {
+            if (pr.id == null) {
+                // create pull request
+                ghClient.createPullRequest(pr)
+            } else {
+                // update pull request
+                ghClient.updatePullRequest(pr)
+            }
+        }
     }
 
     private fun addCommitIdsToLocalStack(commits: List<Commit>): List<Commit>? {
@@ -54,3 +81,12 @@ class GitKspr(
 
 const val REMOTE_BRANCH_PREFIX = "kspr/"
 fun Commit.getRefSpec(): RefSpec = RefSpec(hash, remoteRefName)
+
+/** Much like [Iterable.windowed] with `size` == `2` but includes a leading pair of `null to firstElement` */
+private fun <T : Any> Iterable<T>.windowedPairs(): List<Pair<T?, T>> {
+    val iter = this
+    return buildList {
+        addAll(iter.take(1).map<T, Pair<T?, T>> { current -> null to current })
+        addAll(iter.windowed(2).map { (prev, current) -> prev to current })
+    }
+}
