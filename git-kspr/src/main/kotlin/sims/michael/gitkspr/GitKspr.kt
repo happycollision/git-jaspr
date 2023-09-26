@@ -27,6 +27,9 @@ class GitKspr(
         val stack = addCommitIdsToLocalStack(getLocalCommitStack()) ?: getLocalCommitStack()
         gitClient.push(stack.map(Commit::getRefSpec))
 
+        // TODO for each one you're pushing, see if there's an older one. if so, push it to kspr/commit-id/N where
+        //   N is N + highest seen or 1
+
         val pullRequests = ghClient.getPullRequests().associateBy(PullRequest::commitId)
 
         val prsToMutate = stack
