@@ -1,6 +1,7 @@
 package sims.michael.gitkspr
 
 import org.eclipse.jgit.api.Git
+import org.eclipse.jgit.api.ResetCommand
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.revwalk.RevCommit
 import org.slf4j.LoggerFactory
@@ -69,6 +70,13 @@ class JGitClient(val workingDirectory: File) {
     fun fetch(remoteName: String) {
         logger.trace("fetch {}", remoteName)
         useGit { git -> git.fetch().setRemote(remoteName).call() }
+    }
+
+    fun reset(refName: String) = apply {
+        logger.trace("reset {}", refName)
+        useGit { git ->
+            git.reset().setRef(git.repository.resolve(refName).name).setMode(ResetCommand.ResetType.HARD).call()
+        }
     }
 
     fun checkout(refName: String, createBranch: Boolean = false) = apply {

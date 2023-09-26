@@ -66,7 +66,7 @@ class GitKspr(
         } else {
             val missing = commits.slice(indexOfFirstCommitMissingId until commits.size)
             val refName = "${missing.first().hash}^"
-            gitClient.checkout(refName)
+            gitClient.reset(refName) // TODO need a test that we're resetting and not doing this in detached HEAD
             for (commit in missing) {
                 gitClient.cherryPick(commit)
                 if (commit.id == null) {
