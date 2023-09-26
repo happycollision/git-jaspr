@@ -65,6 +65,46 @@ class GitKsprFunctionalTest {
         push()
     }
 
+    @Test
+    fun `reorder, drop, add, and re-push`(testInfo: TestInfo) {
+        val gitDir = createTempDir().resolve(REPO_NAME)
+        logger.info("{}", gitDir.toStringWithClickableURI())
+
+        val git = JGitClient(gitDir).clone(REPO_URI)
+        fun addCommit(commitLabel: String) {
+            val testName = testInfo.displayName.substringBefore("(")
+            val testFileName = "${testName.sanitize()}-$commitLabel.txt"
+            gitDir.resolve(testFileName).writeText("$commitLabel\n")
+            git.add(testFileName).commit(commitLabel)
+        }
+
+        addCommit("A")
+        addCommit("B")
+        addCommit("C")
+        addCommit("D")
+        addCommit("E")
+
+        System.setProperty(WORKING_DIR_PROPERTY_NAME, gitDir.absolutePath)
+        push()
+
+        val stack = git.getLocalCommitStack("origin", "HEAD", "main")
+        val a = stack.first { it.shortMessage == "A" }
+        val b = stack.first { it.shortMessage == "B" }
+        val c = stack.first { it.shortMessage == "C" }
+        val d = stack.first { it.shortMessage == "D" }
+        val e = stack.first { it.shortMessage == "E" }
+
+        git.reset("${a.hash}^")
+        git.cherryPick(e)
+        git.cherryPick(c)
+        addCommit("1")
+        git.cherryPick(b)
+        git.cherryPick(a)
+        addCommit("2")
+
+        push()
+    }
+
     /** main -> [Push.run] -> [GitKspr.push] */
     private fun push() = main(arrayOf("push"))
 
