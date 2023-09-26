@@ -1,6 +1,7 @@
 package sims.michael.gitkspr
 
 import org.eclipse.jgit.api.Git
+import org.eclipse.jgit.api.ListBranchCommand
 import org.eclipse.jgit.api.ResetCommand
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.revwalk.RevCommit
@@ -65,6 +66,10 @@ class JGitClient(val workingDirectory: File) {
             }
             revCommits.map { revCommit -> revCommit.toCommit(git) }.reversed()
         }
+    }
+
+    fun getRemoteBranches() = useGit { git ->
+        git.branchList().setListMode(ListBranchCommand.ListMode.REMOTE).call().map { it.name }
     }
 
     fun fetch(remoteName: String) {
