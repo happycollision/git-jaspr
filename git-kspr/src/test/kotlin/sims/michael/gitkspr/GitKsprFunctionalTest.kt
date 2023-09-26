@@ -105,6 +105,22 @@ class GitKsprFunctionalTest {
         push()
     }
 
+    @Test
+    fun `DELETE ALL KSPR BRANCHES (DANGEROUS)`() {
+        val gitDir = createTempDir().resolve(REPO_NAME)
+        logger.info("{}", gitDir.toStringWithClickableURI())
+
+        val git = JGitClient(gitDir).clone(REPO_URI)
+        val regex = ".*(${REMOTE_BRANCH_PREFIX}.*?)$".toRegex()
+
+        val refSpecs = git
+            .getRemoteBranches()
+            .mapNotNull(regex::matchEntire)
+            .map { it.groupValues[1] }
+            .map { remoteBranch -> RefSpec("+", remoteBranch) }
+        git.push(refSpecs)
+    }
+
     /** main -> [Push.run] -> [GitKspr.push] */
     private fun push() = main(arrayOf("push"))
 
