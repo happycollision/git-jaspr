@@ -50,7 +50,7 @@ class CliTest {
         val (repoDir, homeDir) = createScratchDirs()
         val expected = Config(
             workingDirectory = repoDir,
-            remoteName = "origin",
+            remoteName = DEFAULT_REMOTE_NAME,
             gitHubInfo = GitHubInfo(
                 host = "github.com",
                 owner = "SomeOwner",
@@ -73,7 +73,7 @@ class CliTest {
         val explicitlyConfiguredHost = "example.com"
         val expected = Config(
             workingDirectory = repoDir,
-            remoteName = "origin",
+            remoteName = DEFAULT_REMOTE_NAME,
             gitHubInfo = GitHubInfo(
                 host = explicitlyConfiguredHost,
                 owner = "SomeOwner",
@@ -96,7 +96,7 @@ class CliTest {
         val (repoDir, homeDir) = createScratchDirs()
         val expected = Config(
             workingDirectory = repoDir,
-            remoteName = "origin",
+            remoteName = DEFAULT_REMOTE_NAME,
             gitHubInfo = GitHubInfo(
                 host = "hostFromHomeDir",
                 owner = "ownerFromRepoDir",

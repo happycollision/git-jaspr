@@ -132,7 +132,7 @@ abstract class GitKsprCommand : CliktCommand() {
             explicitly configured.
             """.trimIndent()
         }
-        .default("origin")
+        .default(DEFAULT_REMOTE_NAME)
 
     val appWiring by lazy {
         val gitClient = JGitClient(workingDirectory)
@@ -208,7 +208,8 @@ object Cli {
 
 const val WORKING_DIR_PROPERTY_NAME = "git-kspr-working-dir"
 const val CONFIG_FILE_NAME = ".git-kspr.properties"
-const val DEFAULT_LOCAL_OBJECT = "HEAD"
+const val DEFAULT_LOCAL_OBJECT = JGitClient.HEAD
 const val DEFAULT_TARGET_REF = "main"
+const val DEFAULT_REMOTE_NAME = "origin"
 const val COMMIT_ID_LABEL = "commit-id"
 private const val GITHUB_TOKEN_ENV_VAR = "GIT_KSPR_TOKEN"

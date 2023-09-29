@@ -22,7 +22,7 @@ class JGitClient(val workingDirectory: File) {
                 name to log(name, 1).first()
             }
             .mapValues { (_, commit) -> commit.id }
-            .filterKeys { it.startsWith("${Constants.R_HEADS}$REMOTE_BRANCH_PREFIX") }
+            .filterKeys { it.startsWith("$R_HEADS$REMOTE_BRANCH_PREFIX") }
             .toSortedMap()
     }
 
@@ -105,7 +105,7 @@ class JGitClient(val workingDirectory: File) {
     fun commitAmend(newMessage: String? = null) {
         useGit { git ->
             val message = newMessage
-                ?: git.log().add(git.repository.resolve(Constants.HEAD)).setMaxCount(1).call().single().fullMessage
+                ?: git.log().add(git.repository.resolve(HEAD)).setMaxCount(1).call().single().fullMessage
             git.commit().setMessage(message).setAmend(true).call()
         }
     }
@@ -120,7 +120,7 @@ class JGitClient(val workingDirectory: File) {
         logger.trace("setCommitId {}", commitId)
         useGit { git ->
             val r = git.repository
-            val head = r.parseCommit(r.findRef(Constants.HEAD).objectId)
+            val head = r.parseCommit(r.findRef(HEAD).objectId)
             require(head.getFooterLines(COMMIT_ID_LABEL).isEmpty())
             git.commit().setAmend(true).setMessage(appendCommitId(head.fullMessage, commitId)).call()
         }
@@ -150,7 +150,7 @@ class JGitClient(val workingDirectory: File) {
         logger.trace("push {}", refSpecs)
         useGit { git ->
             val specs = refSpecs.map { (localRef, remoteRef) ->
-                JRefSpec("$localRef:${Constants.R_HEADS}$remoteRef")
+                JRefSpec("$localRef:$R_HEADS$remoteRef")
             }
             git
                 .push()
@@ -176,5 +176,10 @@ class JGitClient(val workingDirectory: File) {
             fullMessage,
             getFooterLines(COMMIT_ID_LABEL).firstOrNull(),
         )
+    }
+
+    companion object {
+        const val HEAD = Constants.HEAD
+        const val R_HEADS = Constants.R_HEADS
     }
 }

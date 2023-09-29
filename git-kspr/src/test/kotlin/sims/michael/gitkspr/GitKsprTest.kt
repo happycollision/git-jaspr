@@ -15,6 +15,7 @@ import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.api.assertThrows
 import org.slf4j.LoggerFactory
 import org.zeroturnaround.exec.ProcessExecutor
+import sims.michael.gitkspr.JGitClient.Companion.HEAD
 import sims.michael.gitkspr.testing.toStringWithClickableURI
 import java.io.File
 import java.lang.IllegalStateException
@@ -103,7 +104,7 @@ class GitKsprTest {
                 runBlocking {
                     GitKspr(createDefaultGitHubClient(), local, config(localRepoDir), ids::next).push()
                 }
-                assertEquals(expected, local.logRange("HEAD~${collector.numCommits}", "HEAD").map(Commit::id))
+                assertEquals(expected, local.logRange("$HEAD~${collector.numCommits}", HEAD).map(Commit::id))
             }
         }
     }
@@ -154,7 +155,7 @@ class GitKsprTest {
         }
     }
 
-    private fun config(localRepo: File) = Config(localRepo, "origin", GitHubInfo("host", "owner", "name"))
+    private fun config(localRepo: File) = Config(localRepo, DEFAULT_REMOTE_NAME, GitHubInfo("host", "owner", "name"))
 
     @Suppress("SameParameterValue")
     private fun setGitCommitterInfo(name: String, email: String) {

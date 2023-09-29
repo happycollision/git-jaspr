@@ -59,7 +59,7 @@ class GitKsprFunctionalTest {
 
         val first = gitDir.walkTopDown().maxDepth(1).filter { it.name.endsWith(".txt") }.first()
         first.appendText("An amendment.\n")
-        val headCommit = git.log("HEAD", 1).single()
+        val headCommit = git.log(JGitClient.HEAD, 1).single()
         git.add(first.relativeTo(gitDir).name).commitAmend("I amended this\n\n${COMMIT_ID_LABEL}: ${headCommit.id}")
 
         push()
@@ -87,7 +87,7 @@ class GitKsprFunctionalTest {
         System.setProperty(WORKING_DIR_PROPERTY_NAME, gitDir.absolutePath)
         push()
 
-        val stack = git.getLocalCommitStack("origin", "HEAD", "main")
+        val stack = git.getLocalCommitStack(DEFAULT_REMOTE_NAME, JGitClient.HEAD, "main")
         val a = stack.first { it.shortMessage == "A" }
         val b = stack.first { it.shortMessage == "B" }
         val c = stack.first { it.shortMessage == "C" }
