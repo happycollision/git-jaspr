@@ -105,8 +105,8 @@ class GitKsprFunctionalTest {
             val testName = testInfo.displayName.substringBefore("(")
             val testFileName = "${testName.sanitize()}-$commitLabel.txt"
             gitDir.resolve(testFileName).writeText("$commitLabel\n")
-            val commitId = generateUuid()
-            return git.add(testFileName).commit("$commitLabel [$commitId]\n\n${COMMIT_ID_LABEL}: $commitId\n")
+            val commitId = "${commitLabel}_${generateUuid()}"
+            return git.add(testFileName).commit("$commitId\n\n${COMMIT_ID_LABEL}: $commitId\n")
         }
 
         val a = addCommit("A")
