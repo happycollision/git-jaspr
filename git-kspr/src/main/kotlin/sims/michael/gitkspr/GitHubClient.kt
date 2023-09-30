@@ -30,6 +30,7 @@ class GitHubClient(private val delegate: GraphQLClient<*>, private val gitHubInf
                     ?.let { result -> result.groupValues[1] }
                 PullRequest(pr.id, commitId, pr.headRefName, pr.baseRefName, pr.title, pr.body)
             }
+            .also { pullRequests -> logger.trace("getPullRequests {}", pullRequests) }
     }
 
     suspend fun createPullRequest(pullRequest: PullRequest) {
