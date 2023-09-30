@@ -27,6 +27,7 @@ data class RefSpec(val localRef: String, val remoteRef: String) {
 data class PullRequest(
     val id: String?,
     val commitId: String?,
+    val number: Int?,
     val headRefName: String,
     val baseRefName: String,
     val title: String,
@@ -34,8 +35,10 @@ data class PullRequest(
     // TODO add state?
     // TODO add draft?
 ) {
-    override fun toString() =
-        "PR(${headRefName.dropPrefix()} -> ${baseRefName.dropPrefix()}, title=$title, id=$id)"
+    override fun toString(): String {
+        val numberString = number?.let { "#$it" }.orEmpty()
+        return "PR$numberString(${headRefName.dropPrefix()} -> ${baseRefName.dropPrefix()}, title=$title, id=$id)"
+    }
 
     private fun String.dropPrefix() = removePrefix(REMOTE_BRANCH_PREFIX)
 }

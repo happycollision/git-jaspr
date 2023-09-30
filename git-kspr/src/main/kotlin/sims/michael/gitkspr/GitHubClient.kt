@@ -28,7 +28,7 @@ class GitHubClient(private val delegate: GraphQLClient<*>, private val gitHubInf
                 val commitId = regex
                     .matchEntire(pr.headRefName)
                     ?.let { result -> result.groupValues[1] }
-                PullRequest(pr.id, commitId, pr.headRefName, pr.baseRefName, pr.title, pr.body)
+                PullRequest(pr.id, commitId, pr.number, pr.headRefName, pr.baseRefName, pr.title, pr.body)
             }
             .also { pullRequests -> logger.trace("getPullRequests {}", pullRequests) }
     }

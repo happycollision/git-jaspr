@@ -35,9 +35,11 @@ class GitKspr(
         val prsToMutate = stack
             .windowedPairs()
             .map { (prevCommit, currentCommit) ->
+                val existingPr = pullRequests[currentCommit.id]
                 PullRequest(
-                    id = pullRequests[currentCommit.id]?.id,
+                    id = existingPr?.id,
                     commitId = currentCommit.id,
+                    number = existingPr?.number,
                     headRefName = currentCommit.remoteRefName,
                     // The base ref for the first commit in the stack (prevCommit == null) is the target branch
                     // (the branch the commit will ultimately merge into). The base ref for each subsequent
