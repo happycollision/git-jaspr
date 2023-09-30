@@ -11,6 +11,8 @@ import com.github.ajalt.clikt.sources.PropertiesValueSource
 import com.github.ajalt.clikt.sources.ValueSource.Companion.getKey
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import java.io.File
 import java.lang.IllegalArgumentException
 import java.lang.IllegalStateException
@@ -159,7 +161,10 @@ abstract class GitKsprCommand : CliktCommand() {
         }
     }
 
-    fun printError(e: Exception): Nothing = throw PrintMessage(e.message.orEmpty(), 255, true)
+    fun printError(e: Exception): Nothing {
+        Cli.logger.error("We're sorry, but you've likely encountered a bug. Please report this to the maintainers.")
+        throw PrintMessage(e.message.orEmpty(), 255, true)
+    }
 
     inline fun runCatching(block: () -> Unit) {
         try {
@@ -181,6 +186,8 @@ abstract class GitKsprCommand : CliktCommand() {
 }
 
 object Cli {
+    val logger: Logger = LoggerFactory.getLogger(Cli::class.java)
+
     @JvmStatic
     fun main(args: Array<out String>) {
         /*
