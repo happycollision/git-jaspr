@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.api.assertThrows
 import org.slf4j.LoggerFactory
-import org.zeroturnaround.exec.ProcessExecutor
 import sims.michael.gitkspr.JGitClient.Companion.HEAD
 import sims.michael.gitkspr.testing.toStringWithClickableURI
 import java.io.File
@@ -182,12 +181,4 @@ private fun File.initRepoWithInitialCommit() {
     val readme = "README.txt"
     resolve(readme).writeText("This is a test repo.\n")
     git.add(readme).commit("Initial commit")
-}
-
-private fun File.gitLog() = printGitCommand("git", "log", "--pretty=fuller")
-
-@Suppress("SameParameterValue")
-private fun File.printGitCommand(vararg command: String) {
-    val result = ProcessExecutor().command(*command).directory(this).readOutput(true).execute()
-    println(result.outputString())
 }
