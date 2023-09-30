@@ -101,28 +101,22 @@ class GitKsprFunctionalTest {
         logger.info("{}", gitDir.toStringWithClickableURI())
 
         val git = JGitClient(gitDir).clone(REPO_URI)
-        fun addCommit(commitLabel: String) {
+        fun addCommit(commitLabel: String): Commit {
             val testName = testInfo.displayName.substringBefore("(")
             val testFileName = "${testName.sanitize()}-$commitLabel.txt"
             gitDir.resolve(testFileName).writeText("$commitLabel\n")
-            git.add(testFileName).commit(commitLabel)
+            val commitId = generateUuid()
+            return git.add(testFileName).commit("$commitLabel [$commitId]\n\n${COMMIT_ID_LABEL}: $commitId\n")
         }
 
-        addCommit("A")
-        addCommit("B")
-        addCommit("C")
+        val a = addCommit("A")
+        val b = addCommit("B")
+        val c = addCommit("C")
         addCommit("D")
-        addCommit("E")
+        val e = addCommit("E")
 
         System.setProperty(WORKING_DIR_PROPERTY_NAME, gitDir.absolutePath)
         push()
-
-        val stack = git.getLocalCommitStack(DEFAULT_REMOTE_NAME, JGitClient.HEAD, "main")
-        val a = stack.first { it.shortMessage == "A" }
-        val b = stack.first { it.shortMessage == "B" }
-        val c = stack.first { it.shortMessage == "C" }
-        val d = stack.first { it.shortMessage == "D" }
-        val e = stack.first { it.shortMessage == "E" }
 
         git.reset("${a.hash}^")
         git.cherryPick(e)
