@@ -102,18 +102,14 @@ class JGitClient(val workingDirectory: File) {
         }
     }
 
-    fun commitAmend(newMessage: String? = null) {
-        useGit { git ->
-            val message = newMessage
-                ?: git.log().add(git.repository.resolve(HEAD)).setMaxCount(1).call().single().fullMessage
-            git.commit().setMessage(message).setAmend(true).call()
-        }
+    fun commitAmend(newMessage: String? = null) = useGit { git ->
+        val message = newMessage
+            ?: git.log().add(git.repository.resolve(HEAD)).setMaxCount(1).call().single().fullMessage
+        git.commit().setMessage(message).setAmend(true).call().toCommit(git)
     }
 
-    fun commit(message: String) {
-        useGit { git ->
-            git.commit().setMessage(message).call()
-        }
+    fun commit(message: String) = useGit { git ->
+        git.commit().setMessage(message).call().toCommit(git)
     }
 
     fun setCommitId(commitId: String) {
