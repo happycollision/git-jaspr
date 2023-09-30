@@ -1,12 +1,20 @@
 package sims.michael.gitkspr
 
+import com.github.ajalt.clikt.core.NoOpCliktCommand
+import com.github.ajalt.clikt.core.context
+import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.options.required
+import com.github.ajalt.clikt.sources.PropertiesValueSource
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInfo
 import org.slf4j.LoggerFactory
 import sims.michael.gitkspr.Cli.main
 import sims.michael.gitkspr.testing.FunctionalTest
 import sims.michael.gitkspr.testing.toStringWithClickableURI
+import java.io.File
 import java.nio.file.Files
+import kotlin.test.assertEquals
 
 /**
  * Functional test which reads the actual git configuration and interacts with GitHub.
@@ -17,7 +25,7 @@ class GitKsprFunctionalTest {
     private val logger = LoggerFactory.getLogger(GitKsprTest::class.java)
 
     @Test
-    fun `push new commits`(testInfo: TestInfo) {
+    fun `push new commits`(testInfo: TestInfo) = runBlocking {
         val gitDir = createTempDir().resolve(REPO_NAME)
         logger.info("{}", gitDir.toStringWithClickableURI())
 
@@ -35,10 +43,19 @@ class GitKsprFunctionalTest {
 
         System.setProperty(WORKING_DIR_PROPERTY_NAME, gitDir.absolutePath)
         push()
+
+        val wiring = createAppWiring(gitDir)
+        val testCommits = git.log(JGitClient.HEAD, 3)
+        val testCommitIds = testCommits.mapNotNull(Commit::id).toSet()
+        val remotePrIds = wiring.gitHubClient.getPullRequests().mapNotNull(PullRequest::commitId).toSet()
+        val intersection = remotePrIds.intersect(testCommitIds)
+        assertEquals(testCommitIds, intersection)
+
+        git.deleteRemoteRefsFrom(testCommits)
     }
 
     @Test
-    fun `amend HEAD commit and re-push`(testInfo: TestInfo) {
+    fun `amend HEAD commit and re-push`(testInfo: TestInfo) = runBlocking {
         val gitDir = createTempDir().resolve(REPO_NAME)
         logger.info("{}", gitDir.toStringWithClickableURI())
 
@@ -60,9 +77,22 @@ class GitKsprFunctionalTest {
         val first = gitDir.walkTopDown().maxDepth(1).filter { it.name.endsWith(".txt") }.first()
         first.appendText("An amendment.\n")
         val headCommit = git.log(JGitClient.HEAD, 1).single()
-        git.add(first.relativeTo(gitDir).name).commitAmend("I amended this\n\n${COMMIT_ID_LABEL}: ${headCommit.id}")
+        val commitSubject = "I amended this"
+        git.add(first.relativeTo(gitDir).name).commitAmend("$commitSubject\n\n${COMMIT_ID_LABEL}: ${headCommit.id}")
 
         push()
+
+        val wiring = createAppWiring(gitDir)
+        val testCommits = git.log(JGitClient.HEAD, 3)
+        val testCommitIds = testCommits.mapNotNull(Commit::id).toSet()
+        val remotePrs = wiring.gitHubClient.getPullRequests()
+        val intersection = remotePrs.mapNotNull(PullRequest::commitId).toSet().intersect(testCommitIds)
+        assertEquals(testCommitIds, intersection)
+
+        val headCommitId = checkNotNull(headCommit.id)
+        assertEquals(commitSubject, remotePrs.single { it.commitId == headCommitId }.title)
+
+        git.deleteRemoteRefsFrom(testCommits)
     }
 
     @Test
@@ -121,14 +151,45 @@ class GitKsprFunctionalTest {
         git.push(refSpecs)
     }
 
+    private fun JGitClient.deleteRemoteRefsFrom(commits: List<Commit>) {
+        try {
+            push(commits.map { commit -> RefSpec("+", commit.remoteRefName) })
+        } catch (e: Exception) {
+            logger.error("Caught exception during branch cleanup", e)
+        }
+    }
+
     /** main -> [Push.run] -> [GitKspr.push] */
     private fun push() = main(arrayOf("push"))
 
     private fun createTempDir() = checkNotNull(Files.createTempDirectory(GitKsprTest::class.java.simpleName).toFile())
+
+    // TODO quick and dirty way to get a similar app wiring to the production app. Revisit this
+    private fun createAppWiring(dir: File): DefaultAppWiring = DefaultAppWiring(
+        githubToken,
+        Config(dir, "origin", GitHubInfo(REPO_HOST, REPO_OWNER, REPO_NAME)),
+        JGitClient(dir),
+    )
+
+    private val githubToken by lazy {
+        class ReadToken : NoOpCliktCommand() {
+            init {
+                context {
+                    valueSource = PropertiesValueSource.from(File(System.getenv("HOME")).resolve(CONFIG_FILE_NAME))
+                }
+            }
+
+            val githubToken by option().required()
+        }
+
+        ReadToken().apply { main(arrayOf()) }.githubToken
+    }
 }
 
 private val filenameSafeRegex = "\\W+".toRegex()
 private fun String.sanitize() = replace(filenameSafeRegex, "_")
 
+private const val REPO_HOST = "github.com"
+private const val REPO_OWNER = "MichaelSims"
 private const val REPO_NAME = "git-spr-demo"
-private const val REPO_URI = "git@github.com:MichaelSims/${REPO_NAME}.git"
+private const val REPO_URI = "git@${REPO_HOST}:${REPO_OWNER}/${REPO_NAME}.git"
