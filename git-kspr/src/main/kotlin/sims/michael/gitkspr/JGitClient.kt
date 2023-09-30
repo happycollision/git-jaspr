@@ -113,7 +113,7 @@ class JGitClient(val workingDirectory: File) {
     }
 
     fun setCommitId(commitId: String) {
-        logger.trace("setCommitId {}", commitId)
+        logger.trace("setCommitId {}", commitId) // TODO add trace calls to all functions
         useGit { git ->
             val r = git.repository
             val head = r.parseCommit(r.findRef(HEAD).objectId)
