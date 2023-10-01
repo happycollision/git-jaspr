@@ -153,7 +153,7 @@ class GitKsprFunctionalTest {
         }
     }
 
-    /** main -> [Push.run] -> [GitKspr.push] */
+    /** main -> [GitKsprCommand.run] -> [Push.doRun] -> [GitKspr.push] */
     private fun push() = main(arrayOf("push"))
 
     private fun createTempDir() = checkNotNull(Files.createTempDirectory(GitKsprTest::class.java.simpleName).toFile())

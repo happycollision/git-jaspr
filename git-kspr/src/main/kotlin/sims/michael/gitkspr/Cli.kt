@@ -48,30 +48,17 @@ class Push : GitKsprCommand() { // Common options/arguments are inherited from t
         }
         .defaultLazy { RefSpec(DEFAULT_LOCAL_OBJECT, defaultTargetRef) }
 
-    override fun run() {
-        super.run()
-        runCatching {
-            runBlocking {
-                appWiring.gitKspr.push(refSpec)
-            }
-        }
-    }
+    override suspend fun doRun() = appWiring.gitKspr.push(refSpec)
 }
 
 // git kspr status [remote-name] [local-object]
 class Status : GitKsprCommand() { // Common options/arguments are inherited from the superclass
-    override fun run() {
-        super.run()
-        TODO("Status")
-    }
+    override suspend fun doRun() = TODO("Status")
 }
 
 // git kspr merge [remote-name] [local-object]
 class Merge : GitKsprCommand() { // Common options/arguments are inherited from the superclass
-    override fun run() {
-        super.run()
-        TODO("Merge")
-    }
+    override suspend fun doRun() = TODO("Merge")
 }
 
 private class GitHubOptions : OptionGroup(name = "GitHub Options") {
@@ -161,28 +148,29 @@ abstract class GitKsprCommand : CliktCommand() {
         }
     }
 
-    fun printError(e: Exception): Nothing {
+    private fun printError(e: Exception): Nothing {
         Cli.logger.error("We're sorry, but you've likely encountered a bug. Please report this to the maintainers.")
         throw PrintMessage(e.message.orEmpty(), 255, true)
-    }
-
-    inline fun runCatching(block: () -> Unit) {
-        try {
-            block()
-        } catch (e: GitKsprException) {
-            printError(e)
-        } catch (e: IllegalStateException) {
-            printError(e)
-        } catch (e: IllegalArgumentException) {
-            printError(e)
-        }
     }
 
     override fun run() {
         if (showConfig) {
             throw PrintMessage(appWiring.json.encodeToString(appWiring.config))
         }
+        runBlocking {
+            try {
+                doRun()
+            } catch (e: GitKsprException) {
+                printError(e)
+            } catch (e: IllegalStateException) {
+                printError(e)
+            } catch (e: IllegalArgumentException) {
+                printError(e)
+            }
+        }
     }
+
+    abstract suspend fun doRun()
 }
 
 object Cli {
