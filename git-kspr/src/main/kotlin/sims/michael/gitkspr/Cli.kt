@@ -1,11 +1,17 @@
 package sims.michael.gitkspr
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Level.*
+import ch.qos.logback.classic.LoggerContext
+import ch.qos.logback.classic.filter.ThresholdFilter
+import ch.qos.logback.core.rolling.RollingFileAppender
 import com.github.ajalt.clikt.core.*
 import com.github.ajalt.clikt.output.MordantHelpFormatter
 import com.github.ajalt.clikt.parameters.arguments.*
 import com.github.ajalt.clikt.parameters.groups.OptionGroup
 import com.github.ajalt.clikt.parameters.groups.provideDelegate
 import com.github.ajalt.clikt.parameters.options.*
+import com.github.ajalt.clikt.parameters.types.choice
 import com.github.ajalt.clikt.sources.ChainedValueSource
 import com.github.ajalt.clikt.sources.PropertiesValueSource
 import com.github.ajalt.clikt.sources.ValueSource.Companion.getKey
@@ -14,8 +20,6 @@ import kotlinx.serialization.encodeToString
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.io.File
-import java.lang.IllegalArgumentException
-import java.lang.IllegalStateException
 
 /*
 git kspr push [remote-name] [[local-object:]target-ref]
@@ -106,6 +110,13 @@ abstract class GitKsprCommand : CliktCommand() {
 
     private val gitHubOptions by GitHubOptions()
 
+    private val logLevel: Level? by option("-l", "--log-level")
+        .choice(
+            *listOf(OFF, ERROR, WARN, INFO, DEBUG, TRACE, ALL).map { level -> level.levelStr to level }.toTypedArray(),
+            ignoreCase = true,
+        )
+        .help { "The log level for the application. (default: INFO)" }
+
     val defaultTargetRefDelegate = option()
         .default(DEFAULT_TARGET_REF)
         .help { "The name of the implicit target remote branch if not provided in the refspec." }
@@ -148,26 +159,54 @@ abstract class GitKsprCommand : CliktCommand() {
         }
     }
 
-    private fun printError(e: Exception): Nothing {
-        Cli.logger.error("We're sorry, but you've likely encountered a bug. Please report this to the maintainers.")
-        throw PrintMessage(e.message.orEmpty(), 255, true)
-    }
+    private fun printError(e: Exception): Nothing = throw PrintMessage(e.message.orEmpty(), 255, true)
 
     override fun run() {
         if (showConfig) {
             throw PrintMessage(appWiring.json.encodeToString(appWiring.config))
         }
+        val (loggingContext, logFile) = initLogging(logLevel)
         runBlocking {
+            val logger = Cli.logger
             try {
                 doRun()
             } catch (e: GitKsprException) {
                 printError(e)
-            } catch (e: IllegalStateException) {
+            } catch (e: Exception) {
+                logger.error(e.message)
+                logger.error(
+                    "We're sorry, but you've likely encountered a bug. " +
+                        "Please open a bug report and attach the log file: {}",
+                    logFile,
+                )
                 printError(e)
-            } catch (e: IllegalArgumentException) {
-                printError(e)
+            } finally {
+                logger.trace("Stopping logging context")
+                loggingContext.stop()
             }
         }
+    }
+
+    private fun initLogging(logLevel: Level?): Pair<LoggerContext, String> {
+        val loggerContext = LoggerFactory.getILoggerFactory() as LoggerContext
+        val rootLogger = loggerContext.getLogger("ROOT")
+        val fileAppender = rootLogger.getAppender("FILE") as RollingFileAppender<*>
+
+        Cli.logger.debug("logging to {}", fileAppender.file)
+
+        if (logLevel != null) {
+            rootLogger.getAppender("STDOUT").apply {
+                clearAllFilters()
+                addFilter(
+                    ThresholdFilter().apply {
+                        setLevel(logLevel.levelStr)
+                        start()
+                    },
+                )
+            }
+        }
+
+        return loggerContext to fileAppender.file
     }
 
     abstract suspend fun doRun()
