@@ -60,7 +60,7 @@ class CliTest {
         val actual = getEffectiveConfigFromCli(
             repoDir,
             homeDir,
-            remoteUri = expected.gitHubInfo.uri(),
+            remoteUri = "git@github.com:SomeOwner/some-repo-name.git",
             remoteName = expected.remoteName,
         )
         assertEquals(ComparableConfig(expected), ComparableConfig(actual))
@@ -83,9 +83,9 @@ class CliTest {
         val actual = getEffectiveConfigFromCli(
             repoDir,
             homeDir,
-            remoteUri = expected.gitHubInfo.uri(),
+            remoteUri = "git@github.com:SomeOwner/some-repo-name.git",
             remoteName = expected.remoteName,
-            homeDirConfig = mapOf("--github-host" to explicitlyConfiguredHost),
+            homeDirConfig = mapOf("github-host" to explicitlyConfiguredHost),
         )
         assertEquals(ComparableConfig(expected), ComparableConfig(actual))
     }
@@ -106,16 +106,16 @@ class CliTest {
         val actual = getEffectiveConfigFromCli(
             repoDir,
             homeDir,
-            remoteUri = expected.gitHubInfo.uri(),
+            remoteUri = "git@example.com:SomeOwner/some-repo-name.git",
             remoteName = expected.remoteName,
             homeDirConfig = mapOf(
-                "--github-host" to "hostFromHomeDir",
-                "--repo-owner" to "ownerFromHomeDir",
-                "--repo-name" to "nameFromHomeDir",
+                "github-host" to "hostFromHomeDir",
+                "repo-owner" to "ownerFromHomeDir",
+                "repo-name" to "nameFromHomeDir",
             ),
             repoDirConfig = mapOf(
-                "--repo-owner" to "ownerFromRepoDir",
-                "--repo-name" to "nameFromRepoDir",
+                "repo-owner" to "ownerFromRepoDir",
+                "repo-name" to "nameFromRepoDir",
             ),
             extraCliArgs = listOf(
                 "--repo-name",
@@ -163,8 +163,13 @@ private fun getEffectiveConfigFromCli(
     return Json.decodeFromString(outputString)
 }
 
-private fun File.writeConfigFile(config: Map<String, String>) = resolve(CONFIG_FILE_NAME).writer().use { writer ->
-    Properties().apply { putAll(config) }.store(writer, null)
+private fun File.writeConfigFile(config: Map<String, String>) {
+    require(config.keys.none { it.startsWith("--") }) {
+        "Keys should not begin with `--`"
+    }
+    resolve(CONFIG_FILE_NAME).writer().use { writer ->
+        Properties().apply { putAll(config) }.store(writer, null)
+    }
 }
 
 private fun File.initGitDirWithRemoteUri(uriString: String, remoteName: String = "origin") {
@@ -203,5 +208,3 @@ private val json = Json {
 data class ComparableConfig(val config: Config) {
     override fun toString(): String = json.encodeToString(config)
 }
-
-private fun GitHubInfo.uri() = "git@$host:$owner/$name.git"
