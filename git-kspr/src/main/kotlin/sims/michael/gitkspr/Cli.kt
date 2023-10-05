@@ -20,6 +20,7 @@ import kotlinx.serialization.encodeToString
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.io.File
+import org.slf4j.event.Level as SLF4JLevel
 
 /*
 git kspr push [remote-name] [[local-object:]target-ref]
@@ -53,6 +54,18 @@ class Push : GitKsprCommand() { // Common options/arguments are inherited from t
         .defaultLazy { RefSpec(DEFAULT_LOCAL_OBJECT, defaultTargetRef) }
 
     override suspend fun doRun() = appWiring.gitKspr.push(refSpec)
+}
+
+// TODO remove this at some point
+class TestLogging : GitKsprCommand() {
+    private val logger = LoggerFactory.getLogger(TestLogging::class.java)
+    override suspend fun doRun() {
+        for (level in SLF4JLevel.values().reversed()) {
+            println("Logging message at $level:")
+            logger.atLevel(level).log { "I'm a log message at $level level" }
+        }
+        throw IllegalStateException("Testing IllegalStateException")
+    }
 }
 
 // git kspr status [remote-name] [local-object]
@@ -234,6 +247,7 @@ object Cli {
                     Status(),
                     Push(),
                     Merge(),
+                    TestLogging(),
                 ),
             )
             .main(args)
