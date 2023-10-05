@@ -3,8 +3,12 @@ package sims.michael.gitkspr
 import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Level.*
 import ch.qos.logback.classic.LoggerContext
+import ch.qos.logback.classic.encoder.PatternLayoutEncoder
 import ch.qos.logback.classic.filter.ThresholdFilter
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.FileAppender
 import ch.qos.logback.core.rolling.RollingFileAppender
+import ch.qos.logback.core.rolling.TimeBasedRollingPolicy
 import com.github.ajalt.clikt.core.*
 import com.github.ajalt.clikt.output.MordantHelpFormatter
 import com.github.ajalt.clikt.parameters.arguments.*
@@ -12,6 +16,7 @@ import com.github.ajalt.clikt.parameters.groups.OptionGroup
 import com.github.ajalt.clikt.parameters.groups.provideDelegate
 import com.github.ajalt.clikt.parameters.options.*
 import com.github.ajalt.clikt.parameters.types.choice
+import com.github.ajalt.clikt.parameters.types.file
 import com.github.ajalt.clikt.sources.ChainedValueSource
 import com.github.ajalt.clikt.sources.PropertiesValueSource
 import com.github.ajalt.clikt.sources.ValueSource.Companion.getKey
@@ -70,7 +75,10 @@ class TestLogging : GitKsprCommand() {
 
 // git kspr status [remote-name] [local-object]
 class Status : GitKsprCommand() { // Common options/arguments are inherited from the superclass
-    override suspend fun doRun() = TODO("Status")
+    private val logger = LoggerFactory.getLogger(Status::class.java)
+    override suspend fun doRun() {
+        logger.debug("Status")
+    }
 }
 
 // git kspr merge [remote-name] [local-object]
@@ -123,12 +131,25 @@ abstract class GitKsprCommand : CliktCommand() {
 
     private val gitHubOptions by GitHubOptions()
 
-    private val logLevel: Level? by option("-l", "--log-level")
+    private val logLevel: Level by option("-l", "--log-level")
         .choice(
             *listOf(OFF, ERROR, WARN, INFO, DEBUG, TRACE, ALL).map { level -> level.levelStr to level }.toTypedArray(),
             ignoreCase = true,
         )
-        .help { "The log level for the application. (default: INFO)" }
+        .default(INFO)
+        .help { "The log level for the application." }
+
+    private val logToFilesDelegate: OptionWithValues<Boolean, Boolean, Boolean> = option()
+        .flag("--no-log-to-files", default = true)
+        .help { "Write trace logs to directory specified by the ${logsDirectoryDelegate.names.first()} option" }
+
+    private val logsDirectoryDelegate: OptionWithValues<File, File, File> = option()
+        .file()
+        .default(File("${System.getProperty("java.io.tmpdir")}/kspr"))
+        .help { "Trace logs will be written into this directory if ${logToFilesDelegate.names.first()} is enabled" }
+
+    private val logToFiles: Boolean by logToFilesDelegate
+    private val logsDirectory: File by logsDirectoryDelegate
 
     val defaultTargetRefDelegate = option()
         .default(DEFAULT_TARGET_REF)
@@ -150,7 +171,7 @@ abstract class GitKsprCommand : CliktCommand() {
     val appWiring by lazy {
         val gitClient = JGitClient(workingDirectory)
         val githubInfo = determineGithubInfo(gitClient)
-        val config = Config(workingDirectory, remoteName, githubInfo)
+        val config = Config(workingDirectory, remoteName, githubInfo, logLevel, logsDirectory.takeIf { logToFiles })
 
         DefaultAppWiring(githubToken, config, gitClient)
     }
@@ -172,13 +193,12 @@ abstract class GitKsprCommand : CliktCommand() {
         }
     }
 
-    private fun printError(e: Exception): Nothing = throw PrintMessage(e.message.orEmpty(), 255, true)
-
     override fun run() {
+        val config = appWiring.config
         if (showConfig) {
-            throw PrintMessage(appWiring.json.encodeToString(appWiring.config))
+            throw PrintMessage(appWiring.json.encodeToString(config))
         }
-        val (loggingContext, logFile) = initLogging(logLevel)
+        val (loggingContext, logFile) = initLogging(config.logLevel, config.logsDirectory)
         runBlocking {
             val logger = Cli.logger
             try {
@@ -186,12 +206,7 @@ abstract class GitKsprCommand : CliktCommand() {
             } catch (e: GitKsprException) {
                 printError(e)
             } catch (e: Exception) {
-                logger.error(e.message)
-                logger.error(
-                    "We're sorry, but you've likely encountered a bug. " +
-                        "Please open a bug report and attach the log file: {}",
-                    logFile,
-                )
+                logger.logUnhandledException(e.message.orEmpty(), logFile)
                 printError(e)
             } finally {
                 logger.trace("Stopping logging context")
@@ -200,26 +215,73 @@ abstract class GitKsprCommand : CliktCommand() {
         }
     }
 
-    private fun initLogging(logLevel: Level?): Pair<LoggerContext, String> {
+    private fun initLogging(logLevel: Level, logFileDirectory: File?): Pair<LoggerContext, String?> {
+        // NOTE: There is an initial "bootstrap" logging config set via logback.xml. This code makes assumptions based
+        // on configuration in that file.
         val loggerContext = LoggerFactory.getILoggerFactory() as LoggerContext
-        val rootLogger = loggerContext.getLogger("ROOT")
-        val fileAppender = rootLogger.getAppender("FILE") as RollingFileAppender<*>
+        val rootLogger = loggerContext.getLogger(Logger.ROOT_LOGGER_NAME)
+        val fileAppender = if (logFileDirectory != null) createFileAppender(loggerContext, logFileDirectory) else null
 
-        Cli.logger.debug("logging to {}", fileAppender.file)
+        if (fileAppender != null) {
+            rootLogger.addAppender(fileAppender)
+            Cli.logger.debug("Logging to {}", fileAppender.file)
+        }
 
-        if (logLevel != null) {
-            rootLogger.getAppender("STDOUT").apply {
-                clearAllFilters()
+        rootLogger.getAppender("STDOUT").apply {
+            clearAllFilters()
+            addFilter(
+                ThresholdFilter().apply {
+                    setLevel(logLevel.levelStr)
+                    start()
+                },
+            )
+        }
+
+        return loggerContext to fileAppender?.file
+    }
+
+    private fun createFileAppender(loggerContext: LoggerContext, directory: File): FileAppender<ILoggingEvent> =
+        RollingFileAppender<ILoggingEvent>()
+            .apply {
+                val fileAppender = this
+                context = loggerContext
+                name = "FILE"
+                encoder = PatternLayoutEncoder().apply {
+                    context = loggerContext
+                    pattern = "%d{YYYY-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{5} - %msg%n"
+                    start()
+                }
+                rollingPolicy = TimeBasedRollingPolicy<ILoggingEvent>().apply {
+                    context = loggerContext
+                    setParent(fileAppender)
+                    fileNamePattern = "${directory.absolutePath}/kspr.%d.log.txt"
+                    maxHistory = 7
+                    isCleanHistoryOnStart = true
+                    start()
+                }
                 addFilter(
                     ThresholdFilter().apply {
-                        setLevel(logLevel.levelStr)
+                        setLevel(TRACE.levelStr)
                         start()
                     },
                 )
+                start()
             }
-        }
 
-        return loggerContext to fileAppender.file
+    private fun printError(e: Exception): Nothing = throw PrintMessage(e.message.orEmpty(), 255, true)
+
+    private fun Logger.logUnhandledException(message: String, logFile: String?) {
+        error(message)
+        error(
+            "We're sorry, but you've likely encountered a bug. " +
+                if (logFile != null) {
+                    "Please open a bug report and attach the log file ($logFile)."
+                } else {
+                    "Please consider enabling file logging (see the ${logToFilesDelegate.names.first()} " +
+                        "and ${logsDirectoryDelegate.names.first()} options) and opening a bug report " +
+                        "with the log file attached."
+                },
+        )
     }
 
     abstract suspend fun doRun()

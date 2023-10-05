@@ -4,6 +4,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.transport.URIish
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.Test
@@ -23,20 +24,19 @@ class CliTest {
     @TestFactory
     fun `github info is correctly inferred from remote name and URI`(): List<DynamicTest> {
         fun test(name: String, remoteUri: String, remoteName: String, expected: GitHubInfo) = dynamicTest(name) {
-            val (repoDir, homeDir) = createScratchDirs()
+            val scratchDir = createTempDir()
             try {
-                val expectedConfig = Config(repoDir, remoteName, expected)
+                val expectedConfig =
+                    Config(scratchDir.repoDir(), remoteName, expected, logsDirectory = scratchDir.logsDir())
                 val actual = getEffectiveConfigFromCli(
-                    repoDir,
-                    homeDir,
+                    scratchDir,
                     remoteUri,
                     remoteName,
                     homeDirConfig = mapOf("remote-name" to remoteName),
                 )
                 assertEquals(ComparableConfig(expectedConfig), ComparableConfig(actual))
             } finally {
-                repoDir.delete()
-                homeDir.delete()
+                scratchDir.deleteRecursively()
             }
         }
         return listOf(
@@ -47,19 +47,19 @@ class CliTest {
 
     @Test
     fun `test config happy path`() {
-        val (repoDir, homeDir) = createScratchDirs()
+        val scratchDir = createTempDir()
         val expected = Config(
-            workingDirectory = repoDir,
+            workingDirectory = scratchDir.repoDir(),
             remoteName = DEFAULT_REMOTE_NAME,
             gitHubInfo = GitHubInfo(
                 host = "github.com",
                 owner = "SomeOwner",
                 name = "some-repo-name",
             ),
+            logsDirectory = scratchDir.logsDir(),
         )
         val actual = getEffectiveConfigFromCli(
-            repoDir,
-            homeDir,
+            scratchDir,
             remoteUri = "git@github.com:SomeOwner/some-repo-name.git",
             remoteName = expected.remoteName,
         )
@@ -68,21 +68,21 @@ class CliTest {
 
     @Test
     fun `gitHubInfo can be partially explicit and partially implicit`() {
-        val (repoDir, homeDir) = createScratchDirs()
+        val scratchDir = createTempDir()
         // This will come from the configuration, the rest will be inferred by the URI
         val explicitlyConfiguredHost = "example.com"
         val expected = Config(
-            workingDirectory = repoDir,
+            workingDirectory = scratchDir.repoDir(),
             remoteName = DEFAULT_REMOTE_NAME,
             gitHubInfo = GitHubInfo(
                 host = explicitlyConfiguredHost,
                 owner = "SomeOwner",
                 name = "some-repo-name",
             ),
+            logsDirectory = scratchDir.logsDir(),
         )
         val actual = getEffectiveConfigFromCli(
-            repoDir,
-            homeDir,
+            scratchDir,
             remoteUri = "git@github.com:SomeOwner/some-repo-name.git",
             remoteName = expected.remoteName,
             homeDirConfig = mapOf("github-host" to explicitlyConfiguredHost),
@@ -93,19 +93,19 @@ class CliTest {
     @Test
     fun `configuration priority is as expected`() {
         // CLI takes precedence over repo dir config file which takes precedence over home dir config file
-        val (repoDir, homeDir) = createScratchDirs()
+        val scratchDir = createTempDir()
         val expected = Config(
-            workingDirectory = repoDir,
+            workingDirectory = scratchDir.repoDir(),
             remoteName = DEFAULT_REMOTE_NAME,
             gitHubInfo = GitHubInfo(
                 host = "hostFromHomeDir",
                 owner = "ownerFromRepoDir",
                 name = "nameFromCli",
             ),
+            logsDirectory = scratchDir.logsDir(),
         )
         val actual = getEffectiveConfigFromCli(
-            repoDir,
-            homeDir,
+            scratchDir,
             remoteUri = "git@example.com:SomeOwner/some-repo-name.git",
             remoteName = expected.remoteName,
             homeDirConfig = mapOf(
@@ -125,33 +125,78 @@ class CliTest {
         assertEquals(ComparableConfig(expected), ComparableConfig(actual))
     }
 
-    private fun createScratchDirs(): Pair<File, File> {
+    @Test
+    fun `trace logs are written`() {
+        val scratchDir = createTempDir()
+        val expected = Config(
+            workingDirectory = scratchDir.repoDir(),
+            remoteName = DEFAULT_REMOTE_NAME,
+            gitHubInfo = GitHubInfo("host", "owner", "name"),
+            logsDirectory = scratchDir.logsDir(),
+        )
+        executeCli(
+            scratchDir,
+            "git@host:owner/name.git",
+            expected.remoteName,
+            homeDirConfig = mapOf("logs-directory" to scratchDir.logsDir().absolutePath),
+            strings = listOf("status"),
+        )
+
+        val lastLogFile = scratchDir.logsDir().walkTopDown().filter(File::isFile).toList().last()
+        assertTrue(lastLogFile.readText().contains("[main]"), "$lastLogFile doesn't seem to be a log file")
+    }
+
+    private fun createTempDir(): File {
         val dir = checkNotNull(Files.createTempDirectory(CliTest::class.java.simpleName).toFile()).canonicalFile
         logger.info("Temp dir created in {}", dir.toStringWithClickableURI())
-        val repo = dir.resolve("repo")
-        val home = dir.resolve("home")
-        return repo to home
+        return dir
     }
 }
 
 private fun getEffectiveConfigFromCli(
-    repoDir: File,
-    homeDir: File,
+    scratchDir: File,
     remoteUri: String,
     remoteName: String,
     extraCliArgs: List<String> = emptyList(),
     homeDirConfig: Map<String, String> = emptyMap(),
     repoDirConfig: Map<String, String> = emptyMap(),
-): Config {
+): Config = Json.decodeFromString(
+    executeCli(
+        scratchDir,
+        remoteUri,
+        remoteName,
+        extraCliArgs,
+        homeDirConfig,
+        repoDirConfig,
+        listOf("status", "--show-config"),
+    ),
+)
+
+private fun executeCli(
+    scratchDir: File,
+    remoteUri: String,
+    remoteName: String,
+    extraCliArgs: List<String> = emptyList(),
+    homeDirConfig: Map<String, String> = emptyMap(),
+    repoDirConfig: Map<String, String> = emptyMap(),
+    strings: List<String>,
+): String {
+    val homeDir = scratchDir.homeDir()
     check(homeDir.mkdir())
-    homeDir.writeConfigFile(mapOf("github-token" to "REQUIRED_BY_CLI_BUT_UNUSED_IN_THESE_TESTS") + homeDirConfig)
+    val defaults = mapOf(
+        "github-token" to "REQUIRED_BY_CLI_BUT_UNUSED_IN_THESE_TESTS",
+        "logs-directory" to scratchDir.logsDir().absolutePath,
+    )
+    homeDir.writeConfigFile(defaults + homeDirConfig)
+
+    val repoDir = scratchDir.repoDir()
 
     repoDir.initGitDirWithRemoteUri(remoteUri, remoteName)
     repoDir.writeConfigFile(repoDirConfig)
 
     val processResult = ProcessExecutor()
         .environment("HOME", homeDir.absolutePath)
-        .command(getInvokeCliList(repoDir) + listOf("status", "--show-config") + extraCliArgs + remoteName)
+        .command(getInvokeCliList(repoDir) + strings + extraCliArgs + remoteName)
         .readOutput(true)
         .execute()
 
@@ -160,7 +205,7 @@ private fun getEffectiveConfigFromCli(
         "Process exit value was ${processResult.exitValue}, output was $outputString"
     }
 
-    return Json.decodeFromString(outputString)
+    return outputString.orEmpty()
 }
 
 private fun File.writeConfigFile(config: Map<String, String>) {
@@ -204,6 +249,10 @@ private fun findNearestGitDir(): File {
 private val json = Json {
     prettyPrint = true
 }
+
+private fun File.homeDir() = resolve("home")
+private fun File.repoDir() = resolve("repo")
+private fun File.logsDir() = resolve("logs")
 
 data class ComparableConfig(val config: Config) {
     override fun toString(): String = json.encodeToString(config)

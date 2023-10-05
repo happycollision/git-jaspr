@@ -1,3 +1,7 @@
+<!--
+NOTE: This is a "bootstrap" logging configuration. The app code makes additional modifications to the logging config
+based on options provided by the user.
+-->
 <configuration>
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
@@ -8,22 +12,8 @@
         </filter>
     </appender>
 
-    <!-- NOTE: This log file is currently not optional. Future versions may allow this to be configured. -->
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <append>true</append>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${java.io.tmpdir}kspr/kspr.%d.log.txt</fileNamePattern>
-            <maxHistory>7</maxHistory>
-            <cleanHistoryOnStart>true</cleanHistoryOnStart>
-        </rollingPolicy>
-        <encoder><pattern>%d{YYYY-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{5} - %msg%n</pattern></encoder>
-        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>TRACE</level>
-        </filter>
-    </appender>
     <root level="INFO">
         <appender-ref ref="STDOUT"/>
-        <appender-ref ref="FILE"/>
     </root>
 
     <!-- Note the level is set to ALL here, but filtered at the appender level via ThresholdFilter -->

@@ -1,7 +1,9 @@
 package sims.michael.gitkspr
 
+import ch.qos.logback.classic.Level
 import kotlinx.serialization.Serializable
 import sims.michael.gitkspr.serde.FileSerializer
+import sims.michael.gitkspr.serde.LevelSerializer
 import java.io.File
 
 @Serializable
@@ -10,6 +12,10 @@ data class Config(
     val workingDirectory: File,
     val remoteName: String,
     val gitHubInfo: GitHubInfo,
+    @Serializable(with = LevelSerializer::class)
+    val logLevel: Level = Level.INFO,
+    @Serializable(with = FileSerializer::class)
+    val logsDirectory: File? = null,
 )
 
 @Serializable
