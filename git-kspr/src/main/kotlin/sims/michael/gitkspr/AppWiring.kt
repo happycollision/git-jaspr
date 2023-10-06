@@ -13,12 +13,13 @@ interface AppWiring {
     val gitKspr: GitKspr
     val config: Config
     val json: Json
+    val gitClient: JGitClient
 }
 
 class DefaultAppWiring(
     private val githubToken: String,
     override val config: Config,
-    private val gitClient: JGitClient,
+    override val gitClient: JGitClient,
 ) : AppWiring {
     private val bearerTokens by lazy {
         BearerTokens(githubToken, githubToken)

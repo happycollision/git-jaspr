@@ -9,7 +9,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInfo
 import org.slf4j.LoggerFactory
-import sims.michael.gitkspr.Cli.main
 import sims.michael.gitkspr.testing.FunctionalTest
 import sims.michael.gitkspr.testing.toStringWithClickableURI
 import java.io.File
@@ -29,7 +28,11 @@ class GitKsprFunctionalTest {
         val gitDir = createTempDir().resolve(REPO_NAME)
         logger.info("{}", gitDir.toStringWithClickableURI())
 
-        val git = JGitClient(gitDir).clone(REPO_URI)
+        val wiring = createAppWiring(gitDir)
+        val git = wiring.gitClient.clone(REPO_URI)
+        val gitKspr = wiring.gitKspr
+        val gitHub = wiring.gitHubClient
+
         fun addCommit() {
             val testName = testInfo.displayName.substringBefore("(")
             val testFileName = "${testName.sanitize()}-${generateUuid()}.txt"
@@ -42,12 +45,11 @@ class GitKsprFunctionalTest {
         addCommit()
 
         System.setProperty(WORKING_DIR_PROPERTY_NAME, gitDir.absolutePath)
-        push()
+        gitKspr.push()
 
-        val wiring = createAppWiring(gitDir)
         val testCommits = git.log(JGitClient.HEAD, 3)
         val testCommitIds = testCommits.mapNotNull(Commit::id).toSet()
-        val remotePrIds = wiring.gitHubClient.getPullRequests().mapNotNull(PullRequest::commitId).toSet()
+        val remotePrIds = gitHub.getPullRequests().mapNotNull(PullRequest::commitId).toSet()
         val intersection = remotePrIds.intersect(testCommitIds)
         assertEquals(testCommitIds, intersection)
 
@@ -59,7 +61,11 @@ class GitKsprFunctionalTest {
         val gitDir = createTempDir().resolve(REPO_NAME)
         logger.info("{}", gitDir.toStringWithClickableURI())
 
-        val git = JGitClient(gitDir).clone(REPO_URI)
+        val wiring = createAppWiring(gitDir)
+        val git = wiring.gitClient.clone(REPO_URI)
+        val gitKspr = wiring.gitKspr
+        val gitHub = wiring.gitHubClient
+
         fun addCommit() {
             val testName = testInfo.displayName.substringBefore("(")
             val testFileName = "${testName.sanitize()}-${generateUuid()}.txt"
@@ -72,7 +78,7 @@ class GitKsprFunctionalTest {
         addCommit()
 
         System.setProperty(WORKING_DIR_PROPERTY_NAME, gitDir.absolutePath)
-        push()
+        gitKspr.push()
 
         val first = gitDir.walkTopDown().maxDepth(1).filter { it.name.endsWith(".txt") }.first()
         first.appendText("An amendment.\n")
@@ -80,12 +86,11 @@ class GitKsprFunctionalTest {
         val commitSubject = "I amended this"
         git.add(first.relativeTo(gitDir).name).commitAmend("$commitSubject\n\n${COMMIT_ID_LABEL}: ${headCommit.id}")
 
-        push()
+        gitKspr.push()
 
-        val wiring = createAppWiring(gitDir)
         val testCommits = git.log(JGitClient.HEAD, 3)
         val testCommitIds = testCommits.mapNotNull(Commit::id).toSet()
-        val remotePrs = wiring.gitHubClient.getPullRequests()
+        val remotePrs = gitHub.getPullRequests()
         val intersection = remotePrs.mapNotNull(PullRequest::commitId).toSet().intersect(testCommitIds)
         assertEquals(testCommitIds, intersection)
 
@@ -96,11 +101,14 @@ class GitKsprFunctionalTest {
     }
 
     @Test
-    fun `reorder, drop, add, and re-push`(testInfo: TestInfo) {
+    fun `reorder, drop, add, and re-push`(testInfo: TestInfo) = runBlocking {
         val gitDir = createTempDir().resolve(REPO_NAME)
         logger.info("{}", gitDir.toStringWithClickableURI())
 
-        val git = JGitClient(gitDir).clone(REPO_URI)
+        val wiring = createAppWiring(gitDir)
+        val git = wiring.gitClient.clone(REPO_URI)
+        val gitKspr = wiring.gitKspr
+
         fun addCommit(commitLabel: String): Commit {
             val testName = testInfo.displayName.substringBefore("(")
             val testFileName = "${testName.sanitize()}-$commitLabel.txt"
@@ -116,7 +124,7 @@ class GitKsprFunctionalTest {
         val e = addCommit("E")
 
         System.setProperty(WORKING_DIR_PROPERTY_NAME, gitDir.absolutePath)
-        push()
+        gitKspr.push()
 
         git.reset("${a.hash}^")
         git.cherryPick(e)
@@ -126,7 +134,7 @@ class GitKsprFunctionalTest {
         git.cherryPick(a)
         addCommit("2")
 
-        push()
+        gitKspr.push()
     }
 
     @Test
@@ -152,9 +160,6 @@ class GitKsprFunctionalTest {
             logger.error("Caught exception during branch cleanup", e)
         }
     }
-
-    /** main -> [GitKsprCommand.run] -> [Push.doRun] -> [GitKspr.push] */
-    private fun push() = main(arrayOf("push"))
 
     private fun createTempDir() = checkNotNull(Files.createTempDirectory(GitKsprTest::class.java.simpleName).toFile())
 
