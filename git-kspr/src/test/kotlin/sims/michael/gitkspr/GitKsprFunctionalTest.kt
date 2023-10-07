@@ -108,6 +108,7 @@ class GitKsprFunctionalTest {
         val wiring = createAppWiring(gitDir)
         val git = wiring.gitClient.clone(REPO_URI)
         val gitKspr = wiring.gitKspr
+        val gitHub = wiring.gitHubClient
 
         fun addCommit(commitLabel: String): Commit {
             val testName = testInfo.displayName.substringBefore("(")
@@ -120,7 +121,7 @@ class GitKsprFunctionalTest {
         val a = addCommit("A")
         val b = addCommit("B")
         val c = addCommit("C")
-        addCommit("D")
+        val d = addCommit("D")
         val e = addCommit("E")
 
         System.setProperty(WORKING_DIR_PROPERTY_NAME, gitDir.absolutePath)
@@ -129,12 +130,28 @@ class GitKsprFunctionalTest {
         git.reset("${a.hash}^")
         git.cherryPick(e)
         git.cherryPick(c)
-        addCommit("1")
+        val one = addCommit("1")
         git.cherryPick(b)
         git.cherryPick(a)
-        addCommit("2")
+        val two = addCommit("2")
 
         gitKspr.push()
+
+        val remotePrs = gitHub.getPullRequests()
+        println(remotePrs)
+
+        val prs = remotePrs.map { pullRequest -> pullRequest.baseRefName to pullRequest.headRefName }.toSet()
+        val commits = git
+            .log(JGitClient.HEAD, 6)
+            .reversed()
+            .windowedPairs()
+            .map { (prevCommit, currentCommit) ->
+                (prevCommit?.remoteRefName ?: DEFAULT_TARGET_REF) to currentCommit.remoteRefName
+            }
+            .toSet()
+        assertEquals(commits, commits.intersect(prs))
+
+        git.deleteRemoteRefsFrom(listOf(a, b, c, d, e, one, two))
     }
 
     @Test

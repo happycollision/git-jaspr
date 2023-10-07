@@ -25,17 +25,20 @@ class GitKspr(
         val targetRef = refSpec.remoteRef
         fun getLocalCommitStack() = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, targetRef)
         val stack = addCommitIdsToLocalStack(getLocalCommitStack()) ?: getLocalCommitStack()
-        gitClient.push(stack.map(Commit::getRefSpec))
 
         // TODO for each one you're pushing, see if there's an older one. if so, push it to kspr/commit-id/N where
         //   N is N + highest seen or 1
 
-        val pullRequests = ghClient.getPullRequests().associateBy(PullRequest::commitId)
+        val pullRequests = ghClient.getPullRequests().updateBaseRefForReorderedPrsIfAny(stack, refSpec.remoteRef)
+
+        gitClient.push(stack.map(Commit::getRefSpec))
+
+        val existingPrsByCommitId = pullRequests.associateBy(PullRequest::commitId)
 
         val prsToMutate = stack
             .windowedPairs()
             .map { (prevCommit, currentCommit) ->
-                val existingPr = pullRequests[currentCommit.id]
+                val existingPr = existingPrsByCommitId[currentCommit.id]
                 PullRequest(
                     id = existingPr?.id,
                     commitId = currentCommit.id,
@@ -49,7 +52,7 @@ class GitKspr(
                     body = currentCommit.fullMessage,
                 )
             }
-            .filter { pr -> pullRequests[pr.commitId] != pr }
+            .filter { pr -> existingPrsByCommitId[pr.commitId] != pr }
 
         for (pr in prsToMutate) {
             if (pr.id == null) {
@@ -82,13 +85,52 @@ class GitKspr(
             return null
         }
     }
+
+    /**
+     * Update any of the given pull requests whose commits have since been reordered so that their
+     * [PullRequest.baseRefName] is equal to the given [remoteRef], and return a potentially updated list.
+     *
+     * This is necessary because there is no way to atomically force push the PR branches AND update their baseRefs.
+     * We have to do one or the other first, and if at any point a PR's `baseRefName..headRefName` is empty, GitHub
+     * will implicitly close that PR and make it impossible for us to update in the future. To avoid this we temporarily
+     * update the [PullRequest.baseRefName] of any moved PR to point to [remoteRef]. These PRs will be updated again
+     * after we force push the branches.
+     */
+    private suspend fun List<PullRequest>.updateBaseRefForReorderedPrsIfAny(
+        commitStack: List<Commit>,
+        remoteRef: String,
+    ): List<PullRequest> {
+        logger.trace("updateBaseRefForReorderedPrsIfAny")
+
+        val commitMap = commitStack.windowedPairs().associateBy { (_, commit) -> checkNotNull(commit.id) }
+        val updatedPullRequests = map { pr ->
+            val commitPair = commitMap[checkNotNull(pr.commitId)]
+            if (commitPair == null) {
+                pr
+            } else {
+                val (prevCommit, _) = commitPair
+                val newBaseRef = prevCommit?.remoteRefName ?: remoteRef
+                if (pr.baseRefName == newBaseRef) {
+                    pr
+                } else {
+                    pr.copy(baseRefName = remoteRef)
+                }
+            }
+        }
+
+        for (pr in updatedPullRequests.toSet() - toSet()) {
+            ghClient.updatePullRequest(pr)
+        }
+
+        return updatedPullRequests
+    }
 }
 
 const val REMOTE_BRANCH_PREFIX = "kspr/"
 fun Commit.getRefSpec(): RefSpec = RefSpec(hash, remoteRefName)
 
 /** Much like [Iterable.windowed] with `size` == `2` but includes a leading pair of `null to firstElement` */
-private fun <T : Any> Iterable<T>.windowedPairs(): List<Pair<T?, T>> {
+fun <T : Any> Iterable<T>.windowedPairs(): List<Pair<T?, T>> {
     val iter = this
     return buildList {
         addAll(iter.take(1).map<T, Pair<T?, T>> { current -> null to current })
