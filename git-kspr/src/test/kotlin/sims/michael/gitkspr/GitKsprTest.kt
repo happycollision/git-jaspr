@@ -1,8 +1,6 @@
 package sims.michael.gitkspr
 
-import com.nhaarman.mockitokotlin2.any
-import com.nhaarman.mockitokotlin2.doReturn
-import com.nhaarman.mockitokotlin2.mock
+import com.nhaarman.mockitokotlin2.*
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.junit.MockSystemReader
 import org.eclipse.jgit.lib.Constants.GIT_COMMITTER_EMAIL_KEY
@@ -136,6 +134,32 @@ class GitKsprTest {
             (0..2).associate { "$prefix$it" to it.toString() },
             remote.commitIdsByBranch(),
         )
+    }
+
+    @Test
+    fun `push pushes only changed branches`(): Unit = runBlocking {
+        val commitOne = Commit("hOne", "One", "", "iOne")
+        val commitTwo = Commit("hTwo", "Two", "", "iTwo")
+        val commitThree = Commit("hThree", "Three", "", "iThree")
+
+        fun Commit.toRemoteBranch() = RemoteBranch("$REMOTE_BRANCH_PREFIX$id", this)
+        val jGitClient = mock<JGitClient> {
+            on { workingDirectoryIsClean() } doReturn true
+            on { getLocalCommitStack(any(), any(), any()) } doReturn listOf(
+                commitOne,
+                commitTwo,
+                commitThree,
+            )
+            on { getRemoteBranches() } doReturn listOf(commitOne).map(Commit::toRemoteBranch)
+        }
+
+        val gitKspr = GitKspr(createDefaultGitHubClient(), jGitClient, config(File(".")))
+        gitKspr.push()
+        argumentCaptor<List<RefSpec>>().apply {
+            verify(jGitClient, times(1)).push(capture())
+
+            assertEquals(listOf(commitTwo, commitThree).map(Commit::getRefSpec), firstValue)
+        }
     }
 
     private fun createDefaultGitHubClient() = mock<GitHubClient> {

@@ -162,6 +162,7 @@ class GitKsprFunctionalTest {
 
         val refSpecs = git
             .getRemoteBranches()
+            .map(RemoteBranch::name)
             .mapNotNull(regex::matchEntire)
             .map { it.groupValues[1] }
             .map { remoteBranch -> RefSpec("+", remoteBranch) }

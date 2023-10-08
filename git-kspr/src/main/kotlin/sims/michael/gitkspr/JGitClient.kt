@@ -68,8 +68,15 @@ class JGitClient(val workingDirectory: File) {
         }
     }
 
-    fun getRemoteBranches() = useGit { git ->
-        git.branchList().setListMode(ListBranchCommand.ListMode.REMOTE).call().map { it.name }
+    fun getRemoteBranches(): List<RemoteBranch> = useGit { git ->
+        git
+            .branchList()
+            .setListMode(ListBranchCommand.ListMode.REMOTE)
+            .call()
+            .map { ref ->
+                val r = git.repository
+                RemoteBranch(r.shortenRemoteBranchName(ref.name), r.parseCommit(ref.objectId).toCommit(git))
+            }
     }
 
     fun fetch(remoteName: String) {
@@ -144,16 +151,18 @@ class JGitClient(val workingDirectory: File) {
 
     fun push(refSpecs: List<RefSpec>) {
         logger.trace("push {}", refSpecs)
-        useGit { git ->
-            val specs = refSpecs.map { (localRef, remoteRef) ->
-                JRefSpec("$localRef:$R_HEADS$remoteRef")
+        if (refSpecs.isNotEmpty()) {
+            useGit { git ->
+                val specs = refSpecs.map { (localRef, remoteRef) ->
+                    JRefSpec("$localRef:$R_HEADS$remoteRef")
+                }
+                git
+                    .push()
+                    .setForce(true)
+                    .setAtomic(true)
+                    .setRefSpecs(specs)
+                    .call()
             }
-            git
-                .push()
-                .setForce(true)
-                .setAtomic(true)
-                .setRefSpecs(specs)
-                .call()
         }
     }
 

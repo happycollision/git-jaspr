@@ -31,7 +31,8 @@ class GitKspr(
 
         val pullRequests = ghClient.getPullRequests(stack).updateBaseRefForReorderedPrsIfAny(stack, refSpec.remoteRef)
 
-        gitClient.push(stack.map(Commit::getRefSpec))
+        val remoteBranches = gitClient.getRemoteBranches()
+        gitClient.push(stack.map(Commit::getRefSpec) - remoteBranches.map(RemoteBranch::toRefSpec).toSet())
 
         val existingPrsByCommitId = pullRequests.associateBy(PullRequest::commitId)
 

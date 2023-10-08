@@ -35,6 +35,10 @@ data class RefSpec(val localRef: String, val remoteRef: String) {
     override fun toString() = "$localRef:$remoteRef"
 }
 
+data class RemoteBranch(val name: String, val commit: Commit) {
+    fun toRefSpec(): RefSpec = RefSpec(commit.hash, name)
+}
+
 data class PullRequest(
     val id: String?,
     val commitId: String?,
