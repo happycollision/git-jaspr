@@ -19,10 +19,11 @@ class GitHubClient(private val delegate: GraphQLClient<*>, private val gitHubInf
         val regex = "^${REMOTE_BRANCH_PREFIX}(.*?)$".toRegex()
         return delegate
             .execute(GetPullRequests(GetPullRequests.Variables(gitHubInfo.owner, gitHubInfo.name)))
-            .data!!
-            .repository!!
-            .pullRequests
-            .nodes!!
+            .data
+            ?.repository
+            ?.pullRequests
+            ?.nodes
+            .orEmpty()
             .filterNotNull()
             .map { pr ->
                 val commitId = regex
@@ -78,14 +79,15 @@ class GitHubClient(private val delegate: GraphQLClient<*>, private val gitHubInf
 
     private suspend fun fetchRepositoryId(gitHubInfo: GitHubInfo): String {
         logger.trace("fetchRepositoryId {}", gitHubInfo)
-        return delegate.execute(
+        val response = delegate.execute(
             GetRepositoryId(
                 GetRepositoryId.Variables(
                     gitHubInfo.owner,
                     gitHubInfo.name,
                 ),
             ),
-        ).data!!.repository!!.id
+        )
+        return checkNotNull(response.data?.repository?.id) { "Failed to fetch repository ID, response is null" }
     }
 
     private val repositoryId = AtomicReference<String?>(null)
