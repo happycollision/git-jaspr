@@ -49,9 +49,8 @@ class GitKsprFunctionalTest {
 
         val testCommits = git.log(JGitClient.HEAD, 3)
         val testCommitIds = testCommits.mapNotNull(Commit::id).toSet()
-        val remotePrIds = gitHub.getPullRequests().mapNotNull(PullRequest::commitId).toSet()
-        val intersection = remotePrIds.intersect(testCommitIds)
-        assertEquals(testCommitIds, intersection)
+        val remotePrIds = gitHub.getPullRequests(testCommits).mapNotNull(PullRequest::commitId).toSet()
+        assertEquals(testCommitIds, remotePrIds)
 
         git.deleteRemoteRefsFrom(testCommits)
     }
@@ -90,9 +89,9 @@ class GitKsprFunctionalTest {
 
         val testCommits = git.log(JGitClient.HEAD, 3)
         val testCommitIds = testCommits.mapNotNull(Commit::id).toSet()
-        val remotePrs = gitHub.getPullRequests()
-        val intersection = remotePrs.mapNotNull(PullRequest::commitId).toSet().intersect(testCommitIds)
-        assertEquals(testCommitIds, intersection)
+        val remotePrs = gitHub.getPullRequests(testCommits)
+        val remotePrIds = remotePrs.mapNotNull(PullRequest::commitId).toSet()
+        assertEquals(testCommitIds, remotePrIds)
 
         val headCommitId = checkNotNull(headCommit.id)
         assertEquals(commitSubject, remotePrs.single { it.commitId == headCommitId }.title)
@@ -137,7 +136,7 @@ class GitKsprFunctionalTest {
 
         gitKspr.push()
 
-        val remotePrs = gitHub.getPullRequests()
+        val remotePrs = gitHub.getPullRequests(listOf(e, c, one, b, a, two))
 
         val prs = remotePrs.map { pullRequest -> pullRequest.baseRefName to pullRequest.headRefName }.toSet()
         val commits = git
@@ -148,7 +147,7 @@ class GitKsprFunctionalTest {
                 (prevCommit?.remoteRefName ?: DEFAULT_TARGET_REF) to currentCommit.remoteRefName
             }
             .toSet()
-        assertEquals(commits, commits.intersect(prs))
+        assertEquals(commits, prs)
 
         git.deleteRemoteRefsFrom(listOf(a, b, c, d, e, one, two))
     }

@@ -29,7 +29,7 @@ class GitKspr(
         // TODO for each one you're pushing, see if there's an older one. if so, push it to kspr/commit-id/N where
         //   N is N + highest seen or 1
 
-        val pullRequests = ghClient.getPullRequests().updateBaseRefForReorderedPrsIfAny(stack, refSpec.remoteRef)
+        val pullRequests = ghClient.getPullRequests(stack).updateBaseRefForReorderedPrsIfAny(stack, refSpec.remoteRef)
 
         gitClient.push(stack.map(Commit::getRefSpec))
 

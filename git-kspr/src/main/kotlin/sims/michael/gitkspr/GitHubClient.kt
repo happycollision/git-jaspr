@@ -14,8 +14,13 @@ import java.util.concurrent.atomic.AtomicReference
 class GitHubClient(private val delegate: GraphQLClient<*>, private val gitHubInfo: GitHubInfo) {
     private val logger = LoggerFactory.getLogger(GitHubClient::class.java)
 
-    suspend fun getPullRequests(): List<PullRequest> {
+    suspend fun getPullRequests(commitFilter: List<Commit>? = null): List<PullRequest> {
         logger.trace("getPullRequests")
+
+        // If commitFilter was supplied, build a set of commit IDs for filtering the returned PR list.
+        // It'd be nice if the server could filter this for us but there doesn't seem to be a good way to do that.
+        val ids = commitFilter?.map(Commit::id)?.requireNoNulls()?.toSet()
+
         val regex = "^${REMOTE_BRANCH_PREFIX}(.*?)$".toRegex()
         return delegate
             .execute(GetPullRequests(GetPullRequests.Variables(gitHubInfo.owner, gitHubInfo.name)))
@@ -25,11 +30,13 @@ class GitHubClient(private val delegate: GraphQLClient<*>, private val gitHubInf
             ?.nodes
             .orEmpty()
             .filterNotNull()
-            .map { pr ->
-                val commitId = regex
-                    .matchEntire(pr.headRefName)
-                    ?.let { result -> result.groupValues[1] }
-                PullRequest(pr.id, commitId, pr.number, pr.headRefName, pr.baseRefName, pr.title, pr.body)
+            .mapNotNull { pr ->
+                val commitId = regex.matchEntire(pr.headRefName)?.let { result -> result.groupValues[1] }
+                if (ids?.contains(commitId) != false) {
+                    PullRequest(pr.id, commitId, pr.number, pr.headRefName, pr.baseRefName, pr.title, pr.body)
+                } else {
+                    null
+                }
             }
             .also { pullRequests -> logger.trace("getPullRequests {}: {}", pullRequests.size, pullRequests) }
     }

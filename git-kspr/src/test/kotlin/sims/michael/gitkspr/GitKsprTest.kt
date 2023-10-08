@@ -1,5 +1,6 @@
 package sims.michael.gitkspr
 
+import com.nhaarman.mockitokotlin2.any
 import com.nhaarman.mockitokotlin2.doReturn
 import com.nhaarman.mockitokotlin2.mock
 import kotlinx.coroutines.runBlocking
@@ -139,7 +140,7 @@ class GitKsprTest {
 
     private fun createDefaultGitHubClient() = mock<GitHubClient> {
         onBlocking {
-            getPullRequests()
+            getPullRequests(any())
         } doReturn emptyList()
     }
 
