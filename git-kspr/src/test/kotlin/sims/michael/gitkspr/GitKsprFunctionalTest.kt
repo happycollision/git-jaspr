@@ -138,7 +138,6 @@ class GitKsprFunctionalTest {
         gitKspr.push()
 
         val remotePrs = gitHub.getPullRequests()
-        println(remotePrs)
 
         val prs = remotePrs.map { pullRequest -> pullRequest.baseRefName to pullRequest.headRefName }.toSet()
         val commits = git
