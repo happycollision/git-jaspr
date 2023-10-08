@@ -62,7 +62,7 @@ class GitHubClient(private val delegate: GraphQLClient<*>, private val gitHubInf
                 ),
             )
             .also { response ->
-                response.checkNoErrors { logger.error("Error creating PR {}", pullRequest) }
+                response.checkNoErrors { logger.error("Error creating {}", pullRequest) }
             }
     }
 
