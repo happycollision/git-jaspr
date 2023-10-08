@@ -5,6 +5,11 @@ import kotlinx.serialization.Serializable
 import sims.michael.gitkspr.serde.FileSerializer
 import sims.michael.gitkspr.serde.LevelSerializer
 import java.io.File
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
+import sims.michael.gitkspr.generated.getpullrequests.RateLimit as GetPullRequestsRateLimit
+import sims.michael.gitkspr.generated.getrepositoryid.RateLimit as GetRepositoryIdRateLimit
 
 @Serializable
 data class Config(
@@ -48,5 +53,24 @@ data class PullRequest(
 
     private fun String.dropPrefix() = removePrefix(REMOTE_BRANCH_PREFIX)
 }
+
+data class GitHubRateLimitInfo(
+    val cost: Int,
+    val used: Int,
+    val limit: Int,
+    val remaining: Int,
+    val nodeCount: Int,
+    val resetAt: LocalDateTime,
+)
+
+fun GetPullRequestsRateLimit.toCanonicalRateLimitInfo(): GitHubRateLimitInfo =
+    GitHubRateLimitInfo(cost, used, limit, remaining, nodeCount, resetAt.iso8601ToLocalDate())
+
+fun GetRepositoryIdRateLimit.toCanonicalRateLimitInfo(): GitHubRateLimitInfo =
+    GitHubRateLimitInfo(cost, used, limit, remaining, nodeCount, resetAt.iso8601ToLocalDate())
+
+/** Convert an ISO-8601 encoded UTC date string to a [LocalDateTime] */
+private fun String.iso8601ToLocalDate(): LocalDateTime =
+    Instant.parse(this).atZone(ZoneId.systemDefault()).toLocalDateTime()
 
 class GitKsprException(override val message: String) : RuntimeException(message)

@@ -2,6 +2,7 @@ package sims.michael.gitkspr
 
 import com.expediagroup.graphql.client.GraphQLClient
 import com.expediagroup.graphql.client.types.GraphQLClientResponse
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import sims.michael.gitkspr.generated.CreatePullRequest
 import sims.michael.gitkspr.generated.GetPullRequests
@@ -22,9 +23,11 @@ class GitHubClient(private val delegate: GraphQLClient<*>, private val gitHubInf
         val ids = commitFilter?.map(Commit::id)?.requireNoNulls()?.toSet()
 
         val regex = "^${REMOTE_BRANCH_PREFIX}(.*?)$".toRegex()
-        return delegate
+        val response = delegate
             .execute(GetPullRequests(GetPullRequests.Variables(gitHubInfo.owner, gitHubInfo.name)))
             .data
+        logger.logRateLimitInfo(response?.rateLimit?.toCanonicalRateLimitInfo())
+        return response
             ?.repository
             ?.pullRequests
             ?.nodes
@@ -94,7 +97,9 @@ class GitHubClient(private val delegate: GraphQLClient<*>, private val gitHubInf
                 ),
             ),
         )
-        return checkNotNull(response.data?.repository?.id) { "Failed to fetch repository ID, response is null" }
+        val repositoryId = response.data?.repository?.id
+        logger.logRateLimitInfo(response.data?.rateLimit?.toCanonicalRateLimitInfo())
+        return checkNotNull(repositoryId) { "Failed to fetch repository ID, response is null" }
     }
 
     private val repositoryId = AtomicReference<String?>(null)
@@ -109,5 +114,13 @@ class GitHubClient(private val delegate: GraphQLClient<*>, private val gitHubInf
         }
 
         throw GitKsprException(list.first().message)
+    }
+
+    private fun Logger.logRateLimitInfo(gitHubRateLimitInfo: GitHubRateLimitInfo?) {
+        if (gitHubRateLimitInfo == null) {
+            warn("GitHub rate limit info is null; please report this to the maintainers")
+        } else {
+            debug("Rate limit info {}", gitHubRateLimitInfo)
+        }
     }
 }
