@@ -89,13 +89,14 @@ class GitKspr(
 
     /**
      * Update any of the given pull requests whose commits have since been reordered so that their
-     * [PullRequest.baseRefName] is equal to the given [remoteRef], and return a potentially updated list.
+     * [PullRequest.baseRefName] is equal to [remoteRef], and return a potentially updated list.
      *
      * This is necessary because there is no way to atomically force push the PR branches AND update their baseRefs.
      * We have to do one or the other first, and if at any point a PR's `baseRefName..headRefName` is empty, GitHub
      * will implicitly close that PR and make it impossible for us to update in the future. To avoid this we temporarily
-     * update the [PullRequest.baseRefName] of any moved PR to point to [remoteRef]. These PRs will be updated again
-     * after we force push the branches.
+     * update the [PullRequest.baseRefName] of any moved PR to point to [remoteRef] (which should be the ultimate
+     * target of the PR and therefore guaranteed to be non-empty). These PRs will be updated again after we force push
+     * the branches.
      */
     private suspend fun List<PullRequest>.updateBaseRefForReorderedPrsIfAny(
         commitStack: List<Commit>,
