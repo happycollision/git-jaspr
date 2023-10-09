@@ -52,10 +52,8 @@ data class PullRequest(
 ) {
     override fun toString(): String {
         val numberString = number?.let { "#$it" }.orEmpty()
-        return "PR$numberString(${headRefName.dropPrefix()} -> ${baseRefName.dropPrefix()}, title=$title, id=$id)"
+        return "PR$numberString($headRefName -> $baseRefName, title=$title, id=$id)"
     }
-
-    private fun String.dropPrefix() = removePrefix(REMOTE_BRANCH_PREFIX)
 }
 
 data class GitHubRateLimitInfo(
