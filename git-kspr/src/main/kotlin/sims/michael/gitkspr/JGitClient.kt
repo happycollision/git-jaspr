@@ -5,6 +5,8 @@ import org.eclipse.jgit.api.ListBranchCommand
 import org.eclipse.jgit.api.ResetCommand
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.revwalk.RevCommit
+import org.eclipse.jgit.transport.PushResult
+import org.eclipse.jgit.transport.RemoteRefUpdate.Status
 import org.slf4j.LoggerFactory
 import java.io.File
 import org.eclipse.jgit.transport.RefSpec as JRefSpec
@@ -156,14 +158,26 @@ class JGitClient(val workingDirectory: File) {
                 val specs = refSpecs.map { (localRef, remoteRef) ->
                     JRefSpec("$localRef:$R_HEADS$remoteRef")
                 }
-                git
-                    .push()
-                    .setForce(true)
-                    .setAtomic(true)
-                    .setRefSpecs(specs)
-                    .call()
+                checkNoPushErrors(
+                    git
+                        .push()
+                        .setForce(true)
+                        .setAtomic(true)
+                        .setRefSpecs(specs)
+                        .call(),
+                )
             }
         }
+    }
+
+    private fun checkNoPushErrors(pushResults: Iterable<PushResult>) {
+        val pushErrors = pushResults
+            .flatMap { result -> result.remoteUpdates }
+            .filterNot { it.status in SUCCESSFUL_PUSH_STATUSES }
+        for (e in pushErrors) {
+            logger.error("Push failed: {} -> {} ({}: {})", e.srcRef, e.remoteName, e.message, e.status)
+        }
+        check(pushErrors.isEmpty()) { "A git push operation failed, please check the logs" }
     }
 
     fun getRemoteUriOrNull(remoteName: String): String? = useGit { git ->
@@ -186,5 +200,6 @@ class JGitClient(val workingDirectory: File) {
     companion object {
         const val HEAD = Constants.HEAD
         const val R_HEADS = Constants.R_HEADS
+        private val SUCCESSFUL_PUSH_STATUSES = setOf(Status.OK, Status.UP_TO_DATE, Status.NON_EXISTING)
     }
 }
