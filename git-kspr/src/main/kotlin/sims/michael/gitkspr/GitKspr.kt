@@ -30,6 +30,7 @@ class GitKspr(
         //   N is N + highest seen or 1
 
         val pullRequests = ghClient.getPullRequests(stack).updateBaseRefForReorderedPrsIfAny(stack, refSpec.remoteRef)
+        // TODO complain if there are multiple PRs for any commit ID
 
         val remoteBranches = gitClient.getRemoteBranches()
         val outOfDateBranches = stack.map(Commit::getRefSpec) - remoteBranches.map(RemoteBranch::toRefSpec).toSet()
