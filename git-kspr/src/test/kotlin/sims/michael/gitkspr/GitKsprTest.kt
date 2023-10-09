@@ -143,8 +143,7 @@ class GitKsprTest {
         val commitThree = Commit("hThree", "Three", "", "iThree")
 
         fun Commit.toRemoteBranch() = RemoteBranch("$REMOTE_BRANCH_PREFIX$id", this)
-        val jGitClient = mock<JGitClient> {
-            on { workingDirectoryIsClean() } doReturn true
+        val jGitClient = createDefaultGitClient {
             on { getLocalCommitStack(any(), any(), any()) } doReturn listOf(
                 commitOne,
                 commitTwo,
@@ -161,6 +160,10 @@ class GitKsprTest {
             assertEquals(listOf(commitTwo, commitThree).map(Commit::getRefSpec), firstValue)
         }
     }
+
+    private fun createDefaultGitClient(init: KStubbing<JGitClient>.(JGitClient) -> Unit = {}) = mock<JGitClient> {
+        on { workingDirectoryIsClean() } doReturn true
+    }.apply { KStubbing(this).init(this) }
 
     private fun createDefaultGitHubClient() = mock<GitHubClient> {
         onBlocking {
