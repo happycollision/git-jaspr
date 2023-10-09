@@ -157,7 +157,7 @@ class GitKsprTest {
         argumentCaptor<List<RefSpec>> {
             verify(jGitClient, times(1)).push(capture())
 
-            assertEquals(listOf(commitTwo, commitThree).map(Commit::getRefSpec), firstValue)
+            assertEquals(listOf(commitTwo, commitThree).map { commit -> commit.getRefSpec().forcePush() }, firstValue)
         }
     }
 

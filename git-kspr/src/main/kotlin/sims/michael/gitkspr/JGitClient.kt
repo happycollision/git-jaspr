@@ -161,7 +161,6 @@ class JGitClient(val workingDirectory: File) {
                 checkNoPushErrors(
                     git
                         .push()
-                        .setForce(true)
                         .setAtomic(true)
                         .setRefSpecs(specs)
                         .call(),

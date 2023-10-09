@@ -33,6 +33,7 @@ data class Commit(val hash: String, val shortMessage: String, val fullMessage: S
 
 data class RefSpec(val localRef: String, val remoteRef: String) {
     override fun toString() = "$localRef:$remoteRef"
+    fun forcePush() = if (!localRef.startsWith(FORCE_PUSH_PREFIX)) copy(localRef = "+$localRef") else this
 }
 
 data class RemoteBranch(val name: String, val commit: Commit) {

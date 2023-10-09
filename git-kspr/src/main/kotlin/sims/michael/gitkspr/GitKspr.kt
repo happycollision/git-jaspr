@@ -32,7 +32,8 @@ class GitKspr(
         val pullRequests = ghClient.getPullRequests(stack).updateBaseRefForReorderedPrsIfAny(stack, refSpec.remoteRef)
 
         val remoteBranches = gitClient.getRemoteBranches()
-        gitClient.push(stack.map(Commit::getRefSpec) - remoteBranches.map(RemoteBranch::toRefSpec).toSet())
+        val outOfDateBranches = stack.map(Commit::getRefSpec) - remoteBranches.map(RemoteBranch::toRefSpec).toSet()
+        gitClient.push(outOfDateBranches.map(RefSpec::forcePush))
 
         val existingPrsByCommitId = pullRequests.associateBy(PullRequest::commitId)
 
@@ -130,6 +131,7 @@ class GitKspr(
 
 const val REMOTE_BRANCH_PREFIX = "kspr/"
 fun Commit.getRefSpec(): RefSpec = RefSpec(hash, remoteRefName)
+const val FORCE_PUSH_PREFIX = "+"
 
 /** Much like [Iterable.windowed] with `size` == `2` but includes a leading pair of `null to firstElement` */
 fun <T : Any> Iterable<T>.windowedPairs(): List<Pair<T?, T>> {
