@@ -6,12 +6,8 @@ import org.eclipse.jgit.junit.MockSystemReader
 import org.eclipse.jgit.lib.Constants.GIT_COMMITTER_EMAIL_KEY
 import org.eclipse.jgit.lib.Constants.GIT_COMMITTER_NAME_KEY
 import org.eclipse.jgit.util.SystemReader
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.DynamicTest
+import org.junit.jupiter.api.*
 import org.junit.jupiter.api.DynamicTest.dynamicTest
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestFactory
-import org.junit.jupiter.api.assertThrows
 import org.slf4j.LoggerFactory
 import sims.michael.gitkspr.JGitClient.Companion.HEAD
 import sims.michael.gitkspr.testing.toStringWithClickableURI
@@ -157,8 +153,67 @@ class GitKsprTest {
         argumentCaptor<List<RefSpec>> {
             verify(jGitClient, times(1)).push(capture())
 
-            assertEquals(listOf(commitTwo, commitThree).map { commit -> commit.getRefSpec().forcePush() }, firstValue)
+            val expected = listOf(commitTwo, commitThree).map { commit -> commit.getRefSpec().forcePush() }
+            val actual = firstValue
+                // Filter out revision history branches
+                .filterNot { (localRef, _) -> localRef.startsWith("$DEFAULT_REMOTE_NAME/") }
+            assertEquals(expected, actual)
         }
+    }
+
+    @Test
+    fun `push pushes revision history branches on update`(testInfo: TestInfo): Unit = runBlocking {
+        val tempDir = createTempDir()
+        val remoteRepoDir = tempDir.resolve("test-remote")
+        val remote = JGitClient(remoteRepoDir).init()
+        val readme = "README.txt"
+        val remoteReadMe = remoteRepoDir.resolve(readme)
+        remoteReadMe.writeText("This is a test repo.\n")
+        val messageA = "Initial commit"
+        remote.add(readme).commit(messageA)
+
+        val localRepoDir = tempDir.resolve("test-local")
+        val local = JGitClient(localRepoDir).clone(remoteRepoDir.toURI().toString()).checkout("development", true)
+        fun addCommit(commitLabel: String): Commit {
+            val testName = testInfo.displayName.substringBefore("(")
+            val testFileName = "${testName.sanitize()}-$commitLabel.txt"
+            localRepoDir.resolve(testFileName).writeText("$commitLabel\n")
+            return local.add(testFileName).commit("$commitLabel\n\n${COMMIT_ID_LABEL}: $commitLabel\n")
+        }
+
+        val a = addCommit("a")
+        val b = addCommit("b")
+        val c = addCommit("c")
+
+        val ids = uuidIterator()
+        val gitKspr = GitKspr(createDefaultGitHubClient(), local, config(localRepoDir), ids::next)
+        gitKspr.push()
+
+        local.reset("${a.hash}^")
+        val z = addCommit("z")
+        val a1 = local.cherryPick(a)
+        val b1 = local.cherryPick(b)
+        val c1 = local.cherryPick(c)
+
+        gitKspr.push()
+
+        local.reset("${z.hash}^")
+        addCommit("y")
+        local.cherryPick(a1)
+        local.cherryPick(b1)
+        local.cherryPick(c1)
+
+        gitKspr.push()
+
+        assertEquals(
+            listOf("a", "a_01", "a_02", "b", "b_01", "b_02", "c", "c_01", "c_02", "y", "z")
+                .map { name -> "$REMOTE_BRANCH_PREFIX$name" },
+            local
+                .getRemoteBranches()
+                .map(RemoteBranch::name)
+                .filter { name -> name.startsWith(REMOTE_BRANCH_PREFIX) }
+                .sorted(),
+        )
     }
 
     @Test
@@ -262,3 +317,6 @@ private fun File.initRepoWithInitialCommit() {
     resolve(readme).writeText("This is a test repo.\n")
     git.add(readme).commit("Initial commit")
 }
+
+private val filenameSafeRegex = "\\W+".toRegex()
+fun String.sanitize() = replace(filenameSafeRegex, "_")

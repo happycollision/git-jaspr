@@ -26,15 +26,13 @@ class GitKspr(
         fun getLocalCommitStack() = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, targetRef)
         val stack = addCommitIdsToLocalStack(getLocalCommitStack()) ?: getLocalCommitStack()
 
-        // TODO for each one you're pushing, see if there's an older one. if so, push it to kspr/commit-id/N where
-        //   N is N + highest seen or 1
-
         val pullRequests = ghClient.getPullRequests(stack).updateBaseRefForReorderedPrsIfAny(stack, refSpec.remoteRef)
         // TODO complain if there are multiple PRs for any commit ID
 
         val remoteBranches = gitClient.getRemoteBranches()
         val outOfDateBranches = stack.map(Commit::getRefSpec) - remoteBranches.map(RemoteBranch::toRefSpec).toSet()
-        gitClient.push(outOfDateBranches.map(RefSpec::forcePush))
+        val revisionHistoryRefs = getRevisionHistoryRefs(stack, remoteBranches, remoteName)
+        gitClient.push(outOfDateBranches.map(RefSpec::forcePush) + revisionHistoryRefs)
 
         val existingPrsByCommitId = pullRequests.associateBy(PullRequest::commitId)
 
@@ -66,6 +64,37 @@ class GitKspr(
                 ghClient.updatePullRequest(pr)
             }
         }
+    }
+
+    private fun getRevisionHistoryRefs(
+        stack: List<Commit>,
+        branches: List<RemoteBranch>,
+        remoteName: String,
+    ): List<RefSpec> {
+        logger.trace("getRevisionHistoryRefs")
+        val branchNames = branches.map(RemoteBranch::name).toSet()
+
+        val delimiter = "_"
+        val regex = "^${REMOTE_BRANCH_PREFIX}(.*?)(?:$delimiter(\\d+))?$".toRegex()
+        val nextRevisionById = branchNames
+            .mapNotNull { branchName ->
+                regex.matchEntire(branchName)?.let { matchResult ->
+                    val (id, revisionNumber) = matchResult.destructured
+                    id to (revisionNumber.toIntOrNull() ?: 0) + 1
+                }
+            }
+            .sortedBy { (_, revisionNumber) -> revisionNumber }
+            .toMap()
+
+        return stack
+            .mapNotNull { commit ->
+                nextRevisionById[commit.id]
+                    ?.let { revision ->
+                        val refName = commit.remoteRefName
+                        RefSpec("$remoteName/$refName", "%s%s%02d".format(refName, delimiter, revision))
+                    }
+            }
+            .also { refSpecs -> logger.trace("getRevisionHistoryRefs: {}", refSpecs) }
     }
 
     private fun addCommitIdsToLocalStack(commits: List<Commit>): List<Commit>? {

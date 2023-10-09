@@ -201,9 +201,6 @@ class GitKsprFunctionalTest {
     }
 }
 
-private val filenameSafeRegex = "\\W+".toRegex()
-private fun String.sanitize() = replace(filenameSafeRegex, "_")
-
 private const val REPO_HOST = "github.com"
 private const val REPO_OWNER = "MichaelSims"
 private const val REPO_NAME = "git-spr-demo"

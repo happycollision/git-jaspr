@@ -143,10 +143,10 @@ class JGitClient(val workingDirectory: File) {
 
         """.trimIndent()
 
-    fun cherryPick(commit: Commit) {
+    fun cherryPick(commit: Commit): Commit {
         logger.trace("cherryPick {}", commit)
-        useGit { git ->
-            git.cherryPick().include(git.repository.resolve(commit.hash)).call()
+        return useGit { git ->
+            git.cherryPick().include(git.repository.resolve(commit.hash)).call().newHead.toCommit(git)
             // TODO check results and things
         }
     }
