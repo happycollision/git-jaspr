@@ -153,7 +153,7 @@ class GitKsprTest {
             on { getRemoteBranches() } doReturn listOf(commitOne).map(Commit::toRemoteBranch)
         }
 
-        val gitKspr = GitKspr(createDefaultGitHubClient(), jGitClient, config(File(".")))
+        val gitKspr = GitKspr(createDefaultGitHubClient(), jGitClient, config())
         gitKspr.push()
         argumentCaptor<List<RefSpec>>().apply {
             verify(jGitClient, times(1)).push(capture())
@@ -179,7 +179,8 @@ class GitKsprTest {
         }
     }
 
-    private fun config(localRepo: File) = Config(localRepo, DEFAULT_REMOTE_NAME, GitHubInfo("host", "owner", "name"))
+    private fun config(localRepo: File = File("/dev/null")) =
+        Config(localRepo, DEFAULT_REMOTE_NAME, GitHubInfo("host", "owner", "name"))
 
     @Suppress("SameParameterValue")
     private fun setGitCommitterInfo(name: String, email: String) {
