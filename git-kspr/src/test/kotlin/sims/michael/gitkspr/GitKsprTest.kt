@@ -161,6 +161,39 @@ class GitKsprTest {
         }
     }
 
+    @Test
+    fun `push updates base refs for any reordered PRs`(): Unit = runBlocking {
+        val localStack = (1..4).map(::commit)
+        val remoteStack = listOf(1, 2, 4, 3).map(::commit)
+
+        val gitClient = createDefaultGitClient {
+            on { getLocalCommitStack(any(), any(), any()) } doReturn localStack
+        }
+        val gitHubClient = mock<GitHubClient> {
+            onBlocking { getPullRequests(eq(localStack)) } doReturn remoteStack.toPrs()
+        }
+
+        val gitKspr = GitKspr(gitHubClient, gitClient, config())
+        gitKspr.push()
+
+        argumentCaptor<PullRequest> {
+            verify(gitHubClient, atLeastOnce()).updatePullRequest(capture())
+
+            for (value in allValues) {
+                logger.debug("updatePullRequest {}", value)
+            }
+        }
+
+        inOrder(gitHubClient) {
+            for (pr in listOf(pullRequest(4), pullRequest(3))) {
+                verify(gitHubClient).updatePullRequest(eq(pr))
+            }
+            verify(gitHubClient).updatePullRequest(pullRequest(3, 2))
+            verify(gitHubClient).updatePullRequest(pullRequest(4, 3))
+            verifyNoMoreInteractions()
+        }
+    }
+
     private fun createDefaultGitClient(init: KStubbing<JGitClient>.(JGitClient) -> Unit = {}) = mock<JGitClient> {
         on { workingDirectoryIsClean() } doReturn true
     }.apply { KStubbing(this).init(this) }
@@ -184,6 +217,20 @@ class GitKsprTest {
 
     private fun config(localRepo: File = File("/dev/null")) =
         Config(localRepo, DEFAULT_REMOTE_NAME, GitHubInfo("host", "owner", "name"))
+
+    private fun commit(label: Int) = Commit("$label", label.toString(), "", "$label")
+    private fun pullRequest(label: Int, simpleBaseRef: Int? = null): PullRequest {
+        val lStr = label.toString()
+        val baseRef = simpleBaseRef?.let { "$REMOTE_BRANCH_PREFIX$it" } ?: DEFAULT_TARGET_REF
+        return PullRequest(lStr, lStr, label, "$REMOTE_BRANCH_PREFIX$lStr", baseRef, lStr, "")
+    }
+
+    private fun List<Commit>.toPrs(useDefaultBaseRef: Boolean = false) = windowedPairs()
+        .map { pair ->
+            val (prev, current) = pair
+            val id = current.shortMessage
+            pullRequest(id.toInt(), prev?.id?.takeUnless { useDefaultBaseRef }?.toInt())
+        }
 
     @Suppress("SameParameterValue")
     private fun setGitCommitterInfo(name: String, email: String) {
