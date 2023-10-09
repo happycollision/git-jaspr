@@ -42,8 +42,8 @@ class JGitClient(val workingDirectory: File) {
         commits.map { revCommit -> revCommit.toCommit(git) }
     }
 
-    fun workingDirectoryIsClean(): Boolean {
-        logger.trace("workingDirectoryIsClean")
+    fun isWorkingDirectoryClean(): Boolean {
+        logger.trace("isWorkingDirectoryClean")
         return useGit { git -> git.status().call().isClean }
     }
 

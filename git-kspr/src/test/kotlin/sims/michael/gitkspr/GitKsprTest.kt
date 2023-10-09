@@ -195,7 +195,7 @@ class GitKsprTest {
     }
 
     private fun createDefaultGitClient(init: KStubbing<JGitClient>.(JGitClient) -> Unit = {}) = mock<JGitClient> {
-        on { workingDirectoryIsClean() } doReturn true
+        on { isWorkingDirectoryClean() } doReturn true
     }.apply { KStubbing(this).init(this) }
 
     private fun createDefaultGitHubClient() = mock<GitHubClient> {

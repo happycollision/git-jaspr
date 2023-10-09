@@ -15,7 +15,7 @@ class GitKspr(
     suspend fun push(refSpec: RefSpec = RefSpec(DEFAULT_LOCAL_OBJECT, DEFAULT_TARGET_REF)) {
         logger.trace("push {}", refSpec)
 
-        check(gitClient.workingDirectoryIsClean()) {
+        check(gitClient.isWorkingDirectoryClean()) {
             "Your working directory has local changes. Please commit or stash them and re-run the command."
         }
 
