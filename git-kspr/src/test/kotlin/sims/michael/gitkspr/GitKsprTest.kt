@@ -155,7 +155,7 @@ class GitKsprTest {
 
         val gitKspr = GitKspr(createDefaultGitHubClient(), jGitClient, config())
         gitKspr.push()
-        argumentCaptor<List<RefSpec>>().apply {
+        argumentCaptor<List<RefSpec>> {
             verify(jGitClient, times(1)).push(capture())
 
             assertEquals(listOf(commitTwo, commitThree).map(Commit::getRefSpec), firstValue)
