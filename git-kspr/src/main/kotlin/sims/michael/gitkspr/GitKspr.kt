@@ -26,15 +26,15 @@ class GitKspr(
         fun getLocalCommitStack() = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, targetRef)
         val stack = addCommitIdsToLocalStack(getLocalCommitStack()) ?: getLocalCommitStack()
 
-        val pullRequests = ghClient.getPullRequests(stack).updateBaseRefForReorderedPrsIfAny(stack, refSpec.remoteRef)
-        // TODO complain if there are multiple PRs for any commit ID
+        val pullRequests = checkSinglePullRequestPerCommit(ghClient.getPullRequests(stack))
+        val pullRequestsRebased = pullRequests.updateBaseRefForReorderedPrsIfAny(stack, refSpec.remoteRef)
 
         val remoteBranches = gitClient.getRemoteBranches()
         val outOfDateBranches = stack.map(Commit::getRefSpec) - remoteBranches.map(RemoteBranch::toRefSpec).toSet()
         val revisionHistoryRefs = getRevisionHistoryRefs(stack, remoteBranches, remoteName)
         gitClient.push(outOfDateBranches.map(RefSpec::forcePush) + revisionHistoryRefs)
 
-        val existingPrsByCommitId = pullRequests.associateBy(PullRequest::commitId)
+        val existingPrsByCommitId = pullRequestsRebased.associateBy(PullRequest::commitId)
 
         val prsToMutate = stack
             .windowedPairs()
@@ -64,6 +64,15 @@ class GitKspr(
                 ghClient.updatePullRequest(pr)
             }
         }
+    }
+
+    private fun checkSinglePullRequestPerCommit(pullRequests: List<PullRequest>): List<PullRequest> {
+        val commitsWithMultiplePrs =
+            pullRequests.groupBy { pr -> checkNotNull(pr.id) }.filterValues { prs -> prs.size > 1 }
+        check(commitsWithMultiplePrs.isEmpty()) {
+            "Some commits have multiple open PRs; please correct this and retry your operation: $commitsWithMultiplePrs"
+        }
+        return pullRequests
     }
 
     private fun getRevisionHistoryRefs(

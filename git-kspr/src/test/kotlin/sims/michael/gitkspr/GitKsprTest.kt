@@ -253,6 +253,25 @@ class GitKsprTest {
         }
     }
 
+    @Test
+    fun `push fails when multiple PRs for a given commit ID exist`(): Unit = runBlocking {
+        val localStack = listOf(commit(1))
+        val prs = listOf(pullRequest(1, 10), pullRequest(1, 20))
+
+        val gitClient = createDefaultGitClient {
+            on { getLocalCommitStack(any(), any(), any()) } doReturn localStack
+        }
+        val gitHubClient = mock<GitHubClient> {
+            onBlocking { getPullRequests(eq(localStack)) } doReturn prs
+        }
+
+        val gitKspr = GitKspr(gitHubClient, gitClient, config())
+        val exception = assertThrows<IllegalStateException> {
+            gitKspr.push()
+        }
+        logger.info("Exception message: {}", exception.message)
+    }
+
     private fun createDefaultGitClient(init: KStubbing<JGitClient>.(JGitClient) -> Unit = {}) = mock<JGitClient> {
         on { isWorkingDirectoryClean() } doReturn true
     }.apply { KStubbing(this).init(this) }
