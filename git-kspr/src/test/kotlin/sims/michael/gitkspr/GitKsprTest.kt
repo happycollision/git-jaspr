@@ -185,6 +185,10 @@ class GitKsprTest {
         }
 
         inOrder(gitHubClient) {
+            /**
+             * Verify that the moved commits were first rebased to the target branch. For more info on this, see the
+             * comment on [GitKspr.updateBaseRefForReorderedPrsIfAny]
+             */
             for (pr in listOf(pullRequest(4), pullRequest(3))) {
                 verify(gitHubClient).updatePullRequest(eq(pr))
             }
