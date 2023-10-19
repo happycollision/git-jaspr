@@ -12,7 +12,7 @@ import java.io.File
 import org.eclipse.jgit.transport.RefSpec as JRefSpec
 
 // TODO consider extracting an interface from this once the implementation settles
-class JGitClient(val workingDirectory: File) {
+class JGitClient(val workingDirectory: File, val remoteBranchPrefix: String = DEFAULT_REMOTE_BRANCH_PREFIX) {
     private val logger = LoggerFactory.getLogger(JGitClient::class.java)
 
     fun commitIdsByBranch(): Map<String, String?> = useGit { git ->
@@ -24,7 +24,7 @@ class JGitClient(val workingDirectory: File) {
                 name to log(name, 1).first()
             }
             .mapValues { (_, commit) -> commit.id }
-            .filterKeys { it.startsWith("$R_HEADS$REMOTE_BRANCH_PREFIX") }
+            .filterKeys { it.startsWith("$R_HEADS$remoteBranchPrefix") }
             .toSortedMap()
     }
 

@@ -156,6 +156,10 @@ abstract class GitKsprCommand : CliktCommand() {
         .help { "The name of the implicit target remote branch if not provided in the refspec." }
     val defaultTargetRef by defaultTargetRefDelegate
 
+    private val remoteBranchPrefix by option()
+        .default(DEFAULT_REMOTE_BRANCH_PREFIX)
+        .help { "The prefix to use for all git kspr created branches in the remote" }
+
     private val showConfig by option().flag("--no-show-config", default = false)
         .help { "Print the effective configuration to standard output (for debugging)" }
 
@@ -169,9 +173,16 @@ abstract class GitKsprCommand : CliktCommand() {
         .default(DEFAULT_REMOTE_NAME)
 
     val appWiring by lazy {
-        val gitClient = JGitClient(workingDirectory)
+        val gitClient = JGitClient(workingDirectory, remoteBranchPrefix)
         val githubInfo = determineGithubInfo(gitClient)
-        val config = Config(workingDirectory, remoteName, githubInfo, logLevel, logsDirectory.takeIf { logToFiles })
+        val config = Config(
+            workingDirectory,
+            remoteName,
+            githubInfo,
+            remoteBranchPrefix,
+            logLevel,
+            logsDirectory.takeIf { logToFiles },
+        )
 
         DefaultAppWiring(githubToken, config, gitClient)
     }

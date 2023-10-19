@@ -139,12 +139,15 @@ class GitKsprFunctionalTest {
         val remotePrs = gitHub.getPullRequests(listOf(e, c, one, b, a, two))
 
         val prs = remotePrs.map { pullRequest -> pullRequest.baseRefName to pullRequest.headRefName }.toSet()
+        val remoteBranchPrefix = wiring.config.remoteBranchPrefix
         val commits = git
             .log(JGitClient.HEAD, 6)
             .reversed()
             .windowedPairs()
             .map { (prevCommit, currentCommit) ->
-                (prevCommit?.remoteRefName ?: DEFAULT_TARGET_REF) to currentCommit.remoteRefName
+                val baseRefName = prevCommit?.let { "$remoteBranchPrefix${it.id}" } ?: DEFAULT_TARGET_REF
+                val headRefName = "$remoteBranchPrefix${currentCommit.id}"
+                baseRefName to headRefName
             }
             .toSet()
         assertEquals(commits, prs)
@@ -157,8 +160,9 @@ class GitKsprFunctionalTest {
         val gitDir = createTempDir().resolve(REPO_NAME)
         logger.info("{}", gitDir.toStringWithClickableURI())
 
-        val git = JGitClient(gitDir).clone(REPO_URI)
-        val regex = ".*(${REMOTE_BRANCH_PREFIX}.*?)$".toRegex()
+        val wiring = createAppWiring(gitDir)
+        val git = wiring.gitClient.clone(REPO_URI)
+        val regex = ".*(${wiring.config.remoteBranchPrefix}.*?)$".toRegex()
 
         val refSpecs = git
             .getRemoteBranches()
@@ -171,7 +175,7 @@ class GitKsprFunctionalTest {
 
     private fun JGitClient.deleteRemoteRefsFrom(commits: List<Commit>) {
         try {
-            push(commits.map { commit -> RefSpec("+", commit.remoteRefName) })
+            push(commits.map { commit -> RefSpec("+", "$remoteBranchPrefix${commit.id}") })
         } catch (e: Exception) {
             logger.error("Caught exception during branch cleanup", e)
         }
@@ -182,7 +186,7 @@ class GitKsprFunctionalTest {
     // TODO quick and dirty way to get a similar app wiring to the production app. Revisit this
     private fun createAppWiring(dir: File): DefaultAppWiring = DefaultAppWiring(
         githubToken,
-        Config(dir, "origin", GitHubInfo(REPO_HOST, REPO_OWNER, REPO_NAME)),
+        Config(dir, "origin", GitHubInfo(REPO_HOST, REPO_OWNER, REPO_NAME), DEFAULT_REMOTE_BRANCH_PREFIX),
         JGitClient(dir),
     )
 

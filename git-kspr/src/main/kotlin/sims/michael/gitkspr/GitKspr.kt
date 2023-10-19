@@ -30,7 +30,7 @@ class GitKspr(
         val pullRequestsRebased = pullRequests.updateBaseRefForReorderedPrsIfAny(stack, refSpec.remoteRef)
 
         val remoteBranches = gitClient.getRemoteBranches()
-        val outOfDateBranches = stack.map(Commit::getRefSpec) - remoteBranches.map(RemoteBranch::toRefSpec).toSet()
+        val outOfDateBranches = stack.map { c -> c.toRefSpec() } - remoteBranches.map { b -> b.toRefSpec() }.toSet()
         val revisionHistoryRefs = getRevisionHistoryRefs(stack, remoteBranches, remoteName)
         gitClient.push(outOfDateBranches.map(RefSpec::forcePush) + revisionHistoryRefs)
 
@@ -44,11 +44,11 @@ class GitKspr(
                     id = existingPr?.id,
                     commitId = currentCommit.id,
                     number = existingPr?.number,
-                    headRefName = currentCommit.remoteRefName,
+                    headRefName = currentCommit.toRemoteRefName(),
                     // The base ref for the first commit in the stack (prevCommit == null) is the target branch
                     // (the branch the commit will ultimately merge into). The base ref for each subsequent
                     // commit is the remote ref name (i.e. kspr/<commit-id>) of the previous commit in the stack
-                    baseRefName = prevCommit?.remoteRefName ?: refSpec.remoteRef,
+                    baseRefName = prevCommit?.toRemoteRefName() ?: refSpec.remoteRef,
                     title = currentCommit.shortMessage,
                     body = currentCommit.fullMessage,
                 )
@@ -84,7 +84,7 @@ class GitKspr(
         val branchNames = branches.map(RemoteBranch::name).toSet()
 
         val delimiter = "_"
-        val regex = "^${REMOTE_BRANCH_PREFIX}(.*?)(?:$delimiter(\\d+))?$".toRegex()
+        val regex = "^${config.remoteBranchPrefix}(.*?)(?:$delimiter(\\d+))?$".toRegex()
         val nextRevisionById = branchNames
             .mapNotNull { branchName ->
                 regex.matchEntire(branchName)?.let { matchResult ->
@@ -99,7 +99,7 @@ class GitKspr(
             .mapNotNull { commit ->
                 nextRevisionById[commit.id]
                     ?.let { revision ->
-                        val refName = commit.remoteRefName
+                        val refName = commit.toRemoteRefName()
                         RefSpec("$remoteName/$refName", "%s%s%02d".format(refName, delimiter, revision))
                     }
             }
@@ -151,7 +151,7 @@ class GitKspr(
                 pr
             } else {
                 val (prevCommit, _) = commitPair
-                val newBaseRef = prevCommit?.remoteRefName ?: remoteRef
+                val newBaseRef = prevCommit?.toRemoteRefName() ?: remoteRef
                 if (pr.baseRefName == newBaseRef) {
                     pr
                 } else {
@@ -166,10 +166,12 @@ class GitKspr(
 
         return updatedPullRequests
     }
+
+    private fun Commit.toRefSpec(): RefSpec = RefSpec(hash, toRemoteRefName())
+    private fun Commit.toRemoteRefName(): String = "${config.remoteBranchPrefix}$id"
 }
 
-const val REMOTE_BRANCH_PREFIX = "kspr/"
-fun Commit.getRefSpec(): RefSpec = RefSpec(hash, remoteRefName)
+const val DEFAULT_REMOTE_BRANCH_PREFIX = "kspr/"
 const val FORCE_PUSH_PREFIX = "+"
 
 /** Much like [Iterable.windowed] with `size` == `2` but includes a leading pair of `null to firstElement` */

@@ -48,9 +48,8 @@ class CliTest {
     @Test
     fun `test config happy path`() {
         val scratchDir = createTempDir()
-        val expected = Config(
+        val expected = config(
             workingDirectory = scratchDir.repoDir(),
-            remoteName = DEFAULT_REMOTE_NAME,
             gitHubInfo = GitHubInfo(
                 host = "github.com",
                 owner = "SomeOwner",
@@ -71,9 +70,8 @@ class CliTest {
         val scratchDir = createTempDir()
         // This will come from the configuration, the rest will be inferred by the URI
         val explicitlyConfiguredHost = "example.com"
-        val expected = Config(
+        val expected = config(
             workingDirectory = scratchDir.repoDir(),
-            remoteName = DEFAULT_REMOTE_NAME,
             gitHubInfo = GitHubInfo(
                 host = explicitlyConfiguredHost,
                 owner = "SomeOwner",
@@ -94,9 +92,8 @@ class CliTest {
     fun `configuration priority is as expected`() {
         // CLI takes precedence over repo dir config file which takes precedence over home dir config file
         val scratchDir = createTempDir()
-        val expected = Config(
+        val expected = config(
             workingDirectory = scratchDir.repoDir(),
-            remoteName = DEFAULT_REMOTE_NAME,
             gitHubInfo = GitHubInfo(
                 host = "hostFromHomeDir",
                 owner = "ownerFromRepoDir",
@@ -128,9 +125,8 @@ class CliTest {
     @Test
     fun `trace logs are written`() {
         val scratchDir = createTempDir()
-        val expected = Config(
+        val expected = config(
             workingDirectory = scratchDir.repoDir(),
-            remoteName = DEFAULT_REMOTE_NAME,
             gitHubInfo = GitHubInfo("host", "owner", "name"),
             logsDirectory = scratchDir.logsDir(),
         )
@@ -145,6 +141,14 @@ class CliTest {
         val lastLogFile = scratchDir.logsDir().walkTopDown().filter(File::isFile).toList().last()
         assertTrue(lastLogFile.readText().contains("[main]"), "$lastLogFile doesn't seem to be a log file")
     }
+
+    private fun config(workingDirectory: File, gitHubInfo: GitHubInfo, logsDirectory: File) = Config(
+        workingDirectory,
+        remoteName = DEFAULT_REMOTE_NAME,
+        gitHubInfo,
+        remoteBranchPrefix = DEFAULT_REMOTE_BRANCH_PREFIX,
+        logsDirectory = logsDirectory,
+    )
 
     private fun createTempDir(): File {
         val dir = checkNotNull(Files.createTempDirectory(CliTest::class.java.simpleName).toFile()).canonicalFile

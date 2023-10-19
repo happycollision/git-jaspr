@@ -12,7 +12,11 @@ import sims.michael.gitkspr.generated.inputs.CreatePullRequestInput
 import sims.michael.gitkspr.generated.inputs.UpdatePullRequestInput
 import java.util.concurrent.atomic.AtomicReference
 
-class GitHubClient(private val delegate: GraphQLClient<*>, private val gitHubInfo: GitHubInfo) {
+class GitHubClient(
+    private val delegate: GraphQLClient<*>,
+    private val gitHubInfo: GitHubInfo,
+    private val remoteBranchPrefix: String,
+) {
     private val logger = LoggerFactory.getLogger(GitHubClient::class.java)
 
     suspend fun getPullRequests(commitFilter: List<Commit>? = null): List<PullRequest> {
@@ -22,7 +26,7 @@ class GitHubClient(private val delegate: GraphQLClient<*>, private val gitHubInf
         // It'd be nice if the server could filter this for us but there doesn't seem to be a good way to do that.
         val ids = commitFilter?.map(Commit::id)?.requireNoNulls()?.toSet()
 
-        val regex = "^${REMOTE_BRANCH_PREFIX}(.*?)$".toRegex()
+        val regex = "^$remoteBranchPrefix(.*?)$".toRegex()
         val response = delegate
             .execute(GetPullRequests(GetPullRequests.Variables(gitHubInfo.owner, gitHubInfo.name)))
             .data

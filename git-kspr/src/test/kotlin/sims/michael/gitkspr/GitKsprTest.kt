@@ -123,9 +123,10 @@ class GitKsprTest {
         }
 
         val ids = uuidIterator()
-        runBlocking { GitKspr(createDefaultGitHubClient(), local, config(localRepoDir), ids::next).push() }
+        val config = config(localRepoDir)
+        runBlocking { GitKspr(createDefaultGitHubClient(), local, config, ids::next).push() }
 
-        val prefix = "refs/heads/${REMOTE_BRANCH_PREFIX}"
+        val prefix = "refs/heads/${config.remoteBranchPrefix}"
         assertEquals(
             (0..2).associate { "$prefix$it" to it.toString() },
             remote.commitIdsByBranch(),
@@ -138,7 +139,9 @@ class GitKsprTest {
         val commitTwo = Commit("hTwo", "Two", "", "iTwo")
         val commitThree = Commit("hThree", "Three", "", "iThree")
 
-        fun Commit.toRemoteBranch() = RemoteBranch("$REMOTE_BRANCH_PREFIX$id", this)
+        val config = config()
+
+        fun Commit.toRemoteBranch() = RemoteBranch("${config.remoteBranchPrefix}$id", this)
         val jGitClient = createDefaultGitClient {
             on { getLocalCommitStack(any(), any(), any()) } doReturn listOf(
                 commitOne,
@@ -148,12 +151,13 @@ class GitKsprTest {
             on { getRemoteBranches() } doReturn listOf(commitOne).map(Commit::toRemoteBranch)
         }
 
-        val gitKspr = GitKspr(createDefaultGitHubClient(), jGitClient, config())
+        val gitKspr = GitKspr(createDefaultGitHubClient(), jGitClient, config)
         gitKspr.push()
         argumentCaptor<List<RefSpec>> {
             verify(jGitClient, times(1)).push(capture())
 
-            val expected = listOf(commitTwo, commitThree).map { commit -> commit.getRefSpec().forcePush() }
+            val expected = listOf(commitTwo, commitThree)
+                .map { commit -> RefSpec(commit.hash, "${config.remoteBranchPrefix}${commit.id}").forcePush() }
             val actual = firstValue
                 // Filter out revision history branches
                 .filterNot { (localRef, _) -> localRef.startsWith("$DEFAULT_REMOTE_NAME/") }
@@ -186,7 +190,8 @@ class GitKsprTest {
         val c = addCommit("c")
 
         val ids = uuidIterator()
-        val gitKspr = GitKspr(createDefaultGitHubClient(), local, config(localRepoDir), ids::next)
+        val config = config(localRepoDir)
+        val gitKspr = GitKspr(createDefaultGitHubClient(), local, config, ids::next)
         gitKspr.push()
 
         local.reset("${a.hash}^")
@@ -207,11 +212,11 @@ class GitKsprTest {
 
         assertEquals(
             listOf("a", "a_01", "a_02", "b", "b_01", "b_02", "c", "c_01", "c_02", "y", "z")
-                .map { name -> "$REMOTE_BRANCH_PREFIX$name" },
+                .map { name -> "${config.remoteBranchPrefix}$name" },
             local
                 .getRemoteBranches()
                 .map(RemoteBranch::name)
-                .filter { name -> name.startsWith(REMOTE_BRANCH_PREFIX) }
+                .filter { name -> name.startsWith(config.remoteBranchPrefix) }
                 .sorted(),
         )
     }
@@ -221,14 +226,17 @@ class GitKsprTest {
         val localStack = (1..4).map(::commit)
         val remoteStack = listOf(1, 2, 4, 3).map(::commit)
 
+        val config = config()
+        val f = config.prFactory()
+
         val gitClient = createDefaultGitClient {
             on { getLocalCommitStack(any(), any(), any()) } doReturn localStack
         }
         val gitHubClient = mock<GitHubClient> {
-            onBlocking { getPullRequests(eq(localStack)) } doReturn remoteStack.toPrs()
+            onBlocking { getPullRequests(eq(localStack)) } doReturn f.toPrs(remoteStack)
         }
 
-        val gitKspr = GitKspr(gitHubClient, gitClient, config())
+        val gitKspr = GitKspr(gitHubClient, gitClient, config)
         gitKspr.push()
 
         argumentCaptor<PullRequest> {
@@ -244,19 +252,21 @@ class GitKsprTest {
              * Verify that the moved commits were first rebased to the target branch. For more info on this, see the
              * comment on [GitKspr.updateBaseRefForReorderedPrsIfAny]
              */
-            for (pr in listOf(pullRequest(4), pullRequest(3))) {
+            for (pr in listOf(f.pullRequest(4), f.pullRequest(3))) {
                 verify(gitHubClient).updatePullRequest(eq(pr))
             }
-            verify(gitHubClient).updatePullRequest(pullRequest(3, 2))
-            verify(gitHubClient).updatePullRequest(pullRequest(4, 3))
+            verify(gitHubClient).updatePullRequest(f.pullRequest(3, 2))
+            verify(gitHubClient).updatePullRequest(f.pullRequest(4, 3))
             verifyNoMoreInteractions()
         }
     }
 
     @Test
     fun `push fails when multiple PRs for a given commit ID exist`(): Unit = runBlocking {
+        val config = config()
+        val f = config.prFactory()
         val localStack = listOf(commit(1))
-        val prs = listOf(pullRequest(1, 10), pullRequest(1, 20))
+        val prs = listOf(f.pullRequest(1, 10), f.pullRequest(1, 20))
 
         val gitClient = createDefaultGitClient {
             on { getLocalCommitStack(any(), any(), any()) } doReturn localStack
@@ -265,7 +275,7 @@ class GitKsprTest {
             onBlocking { getPullRequests(eq(localStack)) } doReturn prs
         }
 
-        val gitKspr = GitKspr(gitHubClient, gitClient, config())
+        val gitKspr = GitKspr(gitHubClient, gitClient, config)
         val exception = assertThrows<IllegalStateException> {
             gitKspr.push()
         }
@@ -294,21 +304,27 @@ class GitKsprTest {
     }
 
     private fun config(localRepo: File = File("/dev/null")) =
-        Config(localRepo, DEFAULT_REMOTE_NAME, GitHubInfo("host", "owner", "name"))
+        Config(localRepo, DEFAULT_REMOTE_NAME, GitHubInfo("host", "owner", "name"), DEFAULT_REMOTE_BRANCH_PREFIX)
 
     private fun commit(label: Int) = Commit("$label", label.toString(), "", "$label")
-    private fun pullRequest(label: Int, simpleBaseRef: Int? = null): PullRequest {
-        val lStr = label.toString()
-        val baseRef = simpleBaseRef?.let { "$REMOTE_BRANCH_PREFIX$it" } ?: DEFAULT_TARGET_REF
-        return PullRequest(lStr, lStr, label, "$REMOTE_BRANCH_PREFIX$lStr", baseRef, lStr, "")
-    }
 
-    private fun List<Commit>.toPrs(useDefaultBaseRef: Boolean = false) = windowedPairs()
-        .map { pair ->
-            val (prev, current) = pair
-            val id = current.shortMessage
-            pullRequest(id.toInt(), prev?.id?.takeUnless { useDefaultBaseRef }?.toInt())
+    private fun Config.prFactory() = PullRequestFactory(remoteBranchPrefix)
+
+    private class PullRequestFactory(val remoteBranchPrefix: String) {
+        fun pullRequest(label: Int, simpleBaseRef: Int? = null): PullRequest {
+            val lStr = label.toString()
+            val baseRef = simpleBaseRef?.let { "$remoteBranchPrefix$it" } ?: DEFAULT_TARGET_REF
+            return PullRequest(lStr, lStr, label, "$remoteBranchPrefix$lStr", baseRef, lStr, "")
         }
+
+        fun toPrs(commits: List<Commit>, useDefaultBaseRef: Boolean = false) = commits
+            .windowedPairs()
+            .map { pair ->
+                val (prev, current) = pair
+                val id = current.shortMessage
+                pullRequest(id.toInt(), prev?.id?.takeUnless { useDefaultBaseRef }?.toInt())
+            }
+    }
 
     @Suppress("SameParameterValue")
     private fun setGitCommitterInfo(name: String, email: String) {

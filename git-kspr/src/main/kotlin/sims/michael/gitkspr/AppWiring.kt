@@ -44,7 +44,7 @@ class DefaultAppWiring(
     }
 
     val gitHubClient: GitHubClient by lazy {
-        GitHubClient(graphQLClient, config.gitHubInfo)
+        GitHubClient(graphQLClient, config.gitHubInfo, config.remoteBranchPrefix)
     }
 
     override val json: Json = Json {

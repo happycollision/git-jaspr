@@ -17,6 +17,7 @@ data class Config(
     val workingDirectory: File,
     val remoteName: String,
     val gitHubInfo: GitHubInfo,
+    val remoteBranchPrefix: String = DEFAULT_REMOTE_BRANCH_PREFIX,
     @Serializable(with = LevelSerializer::class)
     val logLevel: Level = Level.INFO,
     @Serializable(with = FileSerializer::class)
@@ -27,7 +28,6 @@ data class Config(
 data class GitHubInfo(val host: String, val owner: String, val name: String)
 
 data class Commit(val hash: String, val shortMessage: String, val fullMessage: String, val id: String?) {
-    val remoteRefName: String get() = "$REMOTE_BRANCH_PREFIX$id"
     override fun toString() = "Commit(id=$id, h=$hash, msg=$shortMessage)"
 }
 
