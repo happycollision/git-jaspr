@@ -24,6 +24,14 @@ class GitKsprTest {
     fun setUp() = setGitCommitterInfo("Frank Grimes", "grimey@example.com")
 
     @Test
+    fun `windowedPairs produces expected result`() {
+        val input = listOf("one", "two", "three")
+        val expected = listOf(null to "one", "one" to "two", "two" to "three")
+        val actual = input.windowedPairs()
+        assertEquals(expected, actual)
+    }
+
+    @Test
     fun `push fails unless workdir is clean`() {
         val tempDir = createTempDir()
         val remoteRepoDir = tempDir.resolve("test-remote").apply(File::initRepoWithInitialCommit)
