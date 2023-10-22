@@ -32,6 +32,7 @@ class GitKspr(
         val remoteBranches = gitClient.getRemoteBranches()
         val outOfDateBranches = stack.map { c -> c.toRefSpec() } - remoteBranches.map { b -> b.toRefSpec() }.toSet()
         val revisionHistoryRefs = getRevisionHistoryRefs(stack, remoteBranches, remoteName)
+        // TODO consider push with lease here
         gitClient.push(outOfDateBranches.map(RefSpec::forcePush) + revisionHistoryRefs)
 
         val existingPrsByCommitId = pullRequestsRebased.associateBy(PullRequest::commitId)
