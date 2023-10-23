@@ -50,6 +50,7 @@ data class PullRequest(
     val body: String,
     // TODO add state?
     // TODO add draft?
+    // TODO add commits
 ) {
     override fun toString(): String {
         val numberString = number?.let { "#$it" }.orEmpty()
