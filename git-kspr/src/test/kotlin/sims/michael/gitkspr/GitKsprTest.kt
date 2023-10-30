@@ -12,8 +12,9 @@ import org.slf4j.LoggerFactory
 import sims.michael.gitkspr.JGitClient.Companion.HEAD
 import sims.michael.gitkspr.testing.toStringWithClickableURI
 import java.io.File
-import java.lang.IllegalStateException
 import java.nio.file.Files
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import kotlin.test.assertEquals
 
 class GitKsprTest {
@@ -290,6 +291,25 @@ class GitKsprTest {
         logger.info("Exception message: {}", exception.message)
     }
 
+    @Test
+    fun `getRemoteCommitStatuses produces expected result`() {
+        val config = config()
+        val localStack = listOf(commit(1))
+
+        val gitClient = createDefaultGitClient {
+            on { getLocalCommitStack(any(), any(), any()) } doReturn localStack
+            on { getRemoteBranchesById() } doReturn mapOf(
+                "1" to RemoteBranch("${DEFAULT_REMOTE_BRANCH_PREFIX}1", commit(1)),
+            )
+        }
+
+        val gitKspr = GitKspr(mock<GitHubClient>(), gitClient, config)
+
+        val remoteCommitStatuses = gitKspr.getRemoteCommitStatuses(localStack)
+        assertEquals(mapOf(commit(1) to RemoteCommitStatus(commit(1))), remoteCommitStatuses)
+        assertEquals(commit(1), checkNotNull(remoteCommitStatuses.entries.single().value).remoteCommit)
+    }
+
     private fun createDefaultGitClient(init: KStubbing<JGitClient>.(JGitClient) -> Unit = {}) = mock<JGitClient> {
         on { isWorkingDirectoryClean() } doReturn true
     }.apply { KStubbing(this).init(this) }
@@ -314,7 +334,15 @@ class GitKsprTest {
     private fun config(localRepo: File = File("/dev/null")) =
         Config(localRepo, DEFAULT_REMOTE_NAME, GitHubInfo("host", "owner", "name"), DEFAULT_REMOTE_BRANCH_PREFIX)
 
-    private fun commit(label: Int) = Commit("$label", label.toString(), "", "$label")
+    private fun commit(label: Int, id: String? = null) =
+        Commit(
+            "$label",
+            label.toString(),
+            "",
+            id ?: "$label",
+            ZonedDateTime.of(2023, 10, 29, 7, 56, 0, 0, ZoneId.systemDefault()),
+            ZonedDateTime.of(2023, 10, 29, 7, 56, 0, 0, ZoneId.systemDefault()),
+        )
 
     private fun Config.prFactory() = PullRequestFactory(remoteBranchPrefix)
 

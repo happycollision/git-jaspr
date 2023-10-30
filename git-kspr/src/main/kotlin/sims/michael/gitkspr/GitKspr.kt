@@ -67,6 +67,14 @@ class GitKspr(
         }
     }
 
+    fun getRemoteCommitStatuses(stack: List<Commit>): Map<Commit, RemoteCommitStatus?> {
+        val remoteBranchesById = gitClient.getRemoteBranchesById()
+        return stack
+            .associateWith { commit ->
+                remoteBranchesById[commit.id]?.let { branch -> RemoteCommitStatus(branch.commit) }
+            }
+    }
+
     private fun checkSinglePullRequestPerCommit(pullRequests: List<PullRequest>): List<PullRequest> {
         val commitsWithMultiplePrs =
             pullRequests.groupBy { pr -> checkNotNull(pr.id) }.filterValues { prs -> prs.size > 1 }

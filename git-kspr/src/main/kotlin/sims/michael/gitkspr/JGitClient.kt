@@ -9,6 +9,8 @@ import org.eclipse.jgit.transport.PushResult
 import org.eclipse.jgit.transport.RemoteRefUpdate.Status
 import org.slf4j.LoggerFactory
 import java.io.File
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import org.eclipse.jgit.transport.RefSpec as JRefSpec
 
 // TODO consider extracting an interface from this once the implementation settles
@@ -80,6 +82,9 @@ class JGitClient(val workingDirectory: File, val remoteBranchPrefix: String = DE
                 RemoteBranch(r.shortenRemoteBranchName(ref.name), r.parseCommit(ref.objectId).toCommit(git))
             }
     }
+
+    fun getRemoteBranchesById(): Map<String, RemoteBranch> =
+        getRemoteBranches().associateBy { branch -> branch.name.removePrefix(remoteBranchPrefix) }
 
     fun fetch(remoteName: String) {
         logger.trace("fetch {}", remoteName)
@@ -193,6 +198,8 @@ class JGitClient(val workingDirectory: File, val remoteBranchPrefix: String = DE
             shortMessage,
             fullMessage,
             getFooterLines(COMMIT_ID_LABEL).firstOrNull(),
+            ZonedDateTime.ofInstant(committerIdent.`when`.toInstant(), ZoneId.systemDefault()),
+            ZonedDateTime.ofInstant(authorIdent.`when`.toInstant(), ZoneId.systemDefault()),
         )
     }
 

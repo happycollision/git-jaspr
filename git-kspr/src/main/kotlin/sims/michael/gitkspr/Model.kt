@@ -8,6 +8,7 @@ import java.io.File
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.time.ZonedDateTime
 import sims.michael.gitkspr.generated.getpullrequests.RateLimit as GetPullRequestsRateLimit
 import sims.michael.gitkspr.generated.getrepositoryid.RateLimit as GetRepositoryIdRateLimit
 
@@ -27,7 +28,14 @@ data class Config(
 @Serializable
 data class GitHubInfo(val host: String, val owner: String, val name: String)
 
-data class Commit(val hash: String, val shortMessage: String, val fullMessage: String, val id: String?) {
+data class Commit(
+    val hash: String,
+    val shortMessage: String,
+    val fullMessage: String,
+    val id: String?,
+    val commitDate: ZonedDateTime = ZonedDateTime.now(), // TODO Format with date.format(DateTimeFormatter.ofPattern("E MMM d, YYYY, h:mm:ss a z"))
+    val authorDate: ZonedDateTime = ZonedDateTime.now(),
+) {
     override fun toString() = "Commit(id=$id, h=$hash, msg=$shortMessage)"
 }
 
@@ -39,6 +47,10 @@ data class RefSpec(val localRef: String, val remoteRef: String) {
 data class RemoteBranch(val name: String, val commit: Commit) {
     fun toRefSpec(): RefSpec = RefSpec(commit.hash, name)
 }
+
+data class RemoteCommitStatus(
+    val remoteCommit: Commit,
+)
 
 data class PullRequest(
     val id: String?,
