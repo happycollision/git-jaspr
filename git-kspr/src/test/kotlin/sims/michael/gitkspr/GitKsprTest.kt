@@ -305,7 +305,7 @@ class GitKsprTest {
 
         val gitKspr = GitKspr(mock<GitHubClient>(), gitClient, config)
 
-        val remoteCommitStatuses = gitKspr.getRemoteCommitStatuses(localStack)
+        val remoteCommitStatuses = gitKspr.getRemoteCommitStatuses()
         assertEquals(listOf(RemoteCommitStatus(commit(1), commit(1))), remoteCommitStatuses)
         assertEquals(commit(1), remoteCommitStatuses.single().remoteCommit)
     }

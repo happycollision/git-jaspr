@@ -67,9 +67,15 @@ class GitKspr(
         }
     }
 
-    fun getRemoteCommitStatuses(stack: List<Commit>): List<RemoteCommitStatus> {
+    fun getRemoteCommitStatuses(
+        refSpec: RefSpec = RefSpec(DEFAULT_LOCAL_OBJECT, DEFAULT_TARGET_REF),
+    ): List<RemoteCommitStatus> {
+        val remoteName = config.remoteName
+        gitClient.fetch(remoteName)
+
         val remoteBranchesById = gitClient.getRemoteBranchesById()
-        return stack
+        return gitClient
+            .getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
             .map { commit ->
                 RemoteCommitStatus(commit, remoteBranchesById[commit.id]?.commit)
             }
