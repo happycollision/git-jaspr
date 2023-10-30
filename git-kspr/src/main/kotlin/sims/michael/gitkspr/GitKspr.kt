@@ -67,11 +67,11 @@ class GitKspr(
         }
     }
 
-    fun getRemoteCommitStatuses(stack: List<Commit>): Map<Commit, RemoteCommitStatus?> {
+    fun getRemoteCommitStatuses(stack: List<Commit>): List<RemoteCommitStatus> {
         val remoteBranchesById = gitClient.getRemoteBranchesById()
         return stack
-            .associateWith { commit ->
-                remoteBranchesById[commit.id]?.let { branch -> RemoteCommitStatus(branch.commit) }
+            .map { commit ->
+                RemoteCommitStatus(commit, remoteBranchesById[commit.id]?.commit)
             }
     }
 

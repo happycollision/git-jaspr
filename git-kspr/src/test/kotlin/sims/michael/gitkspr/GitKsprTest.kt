@@ -306,8 +306,8 @@ class GitKsprTest {
         val gitKspr = GitKspr(mock<GitHubClient>(), gitClient, config)
 
         val remoteCommitStatuses = gitKspr.getRemoteCommitStatuses(localStack)
-        assertEquals(mapOf(commit(1) to RemoteCommitStatus(commit(1))), remoteCommitStatuses)
-        assertEquals(commit(1), checkNotNull(remoteCommitStatuses.entries.single().value).remoteCommit)
+        assertEquals(listOf(RemoteCommitStatus(commit(1), commit(1))), remoteCommitStatuses)
+        assertEquals(commit(1), remoteCommitStatuses.single().remoteCommit)
     }
 
     private fun createDefaultGitClient(init: KStubbing<JGitClient>.(JGitClient) -> Unit = {}) = mock<JGitClient> {
