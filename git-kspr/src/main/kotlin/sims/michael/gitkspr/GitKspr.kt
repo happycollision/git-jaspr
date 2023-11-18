@@ -176,6 +176,7 @@ class GitKspr(
         }
 
         for (pr in updatedPullRequests.toSet() - toSet()) {
+            // TODO doesn't this update all of them? Do we really need to do that?
             ghClient.updatePullRequest(pr)
         }
 
