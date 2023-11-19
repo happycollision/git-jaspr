@@ -33,10 +33,15 @@ data class Commit(
     val shortMessage: String,
     val fullMessage: String,
     val id: String?,
+    val committer: Ident = Ident("John F. Zoidberg", "john.f.zoidberg@planetexpress.example.com"),
     val commitDate: ZonedDateTime = ZonedDateTime.now(), // TODO Format with date.format(DateTimeFormatter.ofPattern("E MMM d, YYYY, h:mm:ss a z"))
     val authorDate: ZonedDateTime = ZonedDateTime.now(),
 ) {
-    override fun toString() = "Commit(id=$id, h=$hash, msg=$shortMessage)"
+    override fun toString() = "Commit(id=$id, h=$hash, msg=$shortMessage, committer=$committer)"
+}
+
+data class Ident(val name: String, val email: String) {
+    override fun toString() = "$name <$email>"
 }
 
 data class RefSpec(val localRef: String, val remoteRef: String) {

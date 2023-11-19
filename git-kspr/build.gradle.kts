@@ -40,8 +40,6 @@ dependencies {
     testImplementation(libs.kotlin.test.junit5)
     testImplementation(libs.junit.jupiter.engine)
     testImplementation(libs.jgit.junit)
-    testImplementation(libs.mockito.kotlin)
-    testImplementation(libs.mockito.inline)
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
