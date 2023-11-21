@@ -37,16 +37,7 @@ target-branch: main
  */
 class Push : GitKsprCommand() { // Common options/arguments are inherited from the superclass
     private val refSpec by argument()
-        .convert { refSpecString ->
-            val split = refSpecString.split(":")
-            if (split.size > 2) fail("Invalid format for refspec: $refSpecString")
-            if (split.size == 2) {
-                val (localObjectName, targetRefName) = split
-                RefSpec(localObjectName, targetRefName)
-            } else {
-                RefSpec(DEFAULT_LOCAL_OBJECT, refSpecString)
-            }
-        }
+        .convert(conversion = ArgumentTransformContext::convertRefSpecString)
         .help {
             """
             A refspec in the form `[[local-object:]target-ref]`. Patterned after a typical git refspec, it describes the 
@@ -73,11 +64,35 @@ class TestLogging : GitKsprCommand() {
     }
 }
 
-// git kspr status [remote-name] [local-object]
-class Status : GitKsprCommand() { // Common options/arguments are inherited from the superclass
-    private val logger = LoggerFactory.getLogger(Status::class.java)
+class NoOp : GitKsprCommand() {
+    private val logger = LoggerFactory.getLogger(TestLogging::class.java)
+
+    @Suppress("unused")
+    val extraArgs by argument().multiple() // Ignore extra args
+
     override suspend fun doRun() {
-        logger.debug("Status")
+        logger.info(commandName)
+    }
+}
+
+// git kspr status [remote-name] [[local-object:]target-ref]
+class Status : GitKsprCommand() { // Common options/arguments are inherited from the superclass
+    private val refSpec by argument()
+        .convert(conversion = ArgumentTransformContext::convertRefSpecString)
+        .help {
+            """
+            A refspec in the form `[[local-object:]target-ref]`. Patterned after a typical git refspec, it describes a 
+            local commit, followed by a colon, followed by the name of a target branch on the remote. The local commit
+            is compared to the target ref to determine which commits should be included in the status report.
+            The local object name (and the colon) can be omitted, in which case the default is 
+            `$DEFAULT_LOCAL_OBJECT`. If the target-ref is also omitted, it defaults to the value of the 
+            `${defaultTargetRefDelegate.names.single()}` option or `$DEFAULT_TARGET_REF`.
+            """.trimIndent()
+        }
+        .defaultLazy { RefSpec(DEFAULT_LOCAL_OBJECT, defaultTargetRef) }
+
+    override suspend fun doRun() {
+        print(appWiring.gitKspr.getStatusString(refSpec))
     }
 }
 
@@ -93,6 +108,17 @@ private class GitHubOptions : OptionGroup(name = "GitHub Options") {
         .help { "The GitHub owner name. This will be inferred by the remote URI if not specified." }
     val repoName by option()
         .help { "The GitHub repo name. This will be inferred by the remote URI if not specified." }
+}
+
+private fun ArgumentTransformContext.convertRefSpecString(refSpecString: String): RefSpec {
+    val split = refSpecString.split(":")
+    if (split.size > 2) fail("Invalid format for refspec: $refSpecString")
+    return if (split.size == 2) {
+        val (localObjectName, targetRefName) = split
+        RefSpec(localObjectName, targetRefName)
+    } else {
+        RefSpec(DEFAULT_LOCAL_OBJECT, refSpecString)
+    }
 }
 
 abstract class GitKsprCommand : CliktCommand() {
@@ -321,6 +347,7 @@ object Cli {
                     Push(),
                     Merge(),
                     TestLogging(),
+                    NoOp(),
                 ),
             )
             .main(args)

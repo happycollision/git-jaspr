@@ -135,7 +135,7 @@ class CliTest {
             "git@host:owner/name.git",
             expected.remoteName,
             homeDirConfig = mapOf("logs-directory" to scratchDir.logsDir().absolutePath),
-            strings = listOf("status"),
+            strings = listOf("no-op"),
         )
 
         val lastLogFile = scratchDir.logsDir().walkTopDown().filter(File::isFile).toList().last()

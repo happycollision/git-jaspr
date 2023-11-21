@@ -56,6 +56,7 @@ data class RemoteBranch(val name: String, val commit: Commit) {
 data class RemoteCommitStatus(
     val localCommit: Commit,
     val remoteCommit: Commit?,
+    val pullRequest: PullRequest?,
 )
 
 data class PullRequest(

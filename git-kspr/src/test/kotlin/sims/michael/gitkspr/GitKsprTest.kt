@@ -340,6 +340,104 @@ class GitKsprTest {
         }
     }
 
+    @Test
+    fun `status none pushed`() {
+        withTestSetup {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit { title = "one" }
+                        commit { title = "two" }
+                        commit {
+                            title = "three"
+                            localRefs += "development"
+                        }
+                    }
+                },
+            )
+
+            assertEquals(
+                """
+                    |[- - - - -] one
+                    |[- - - - -] two
+                    |[- - - - -] three
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                gitKspr.getAndPrintStatusString(),
+            )
+        }
+    }
+
+    @Test
+    fun `status one pushed`() {
+        withTestSetup {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                        }
+                        commit { title = "two" }
+                        commit {
+                            title = "three"
+                            localRefs += "development"
+                        }
+                    }
+                },
+            )
+
+            assertEquals(
+                """
+                    |[v - - - -] one
+                    |[- - - - -] two
+                    |[- - - - -] three
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                gitKspr.getAndPrintStatusString(),
+            )
+        }
+    }
+
+    @Test
+    fun `status one pull request`() {
+        withTestSetup {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                        }
+                        commit { title = "two" }
+                        commit {
+                            title = "three"
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                        baseRef = "main"
+                        title = "one"
+                    }
+                },
+            )
+
+            assertEquals(
+                """
+                    |[v v - - -] one
+                    |[- - - - -] two
+                    |[- - - - -] three
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                gitKspr.getAndPrintStatusString(),
+            )
+        }
+    }
+
     @Suppress("SameParameterValue")
     private fun setGitCommitterInfo(name: String, email: String) {
         SystemReader
@@ -351,4 +449,22 @@ class GitKsprTest {
                     },
             )
     }
+
+    private suspend fun GitKspr.getAndPrintStatusString() = getStatusString().also(::print)
+
+    // It may seem silly to repeat what is already defined in GitKspr.HEADER, but if a dev changes the header I want
+    // these tests to break so that any such changes are very deliberate. This is a compromise between referencing the
+    // same value from both tests and prod and the other extreme of repeating this header text manually in every test.
+    private fun String.toStatusString() =
+        """
+            | ┌─ commit is pushed
+            | │ ┌─ pull request exists
+            | │ │ ┌─ github checks pass
+            | │ │ │ ┌── pull request approved
+            | │ │ │ │ ┌─── no merge conflicts
+            | │ │ │ │ │ ┌──── stack check
+            | │ │ │ │ │ │
+            |$this
+
+        """.trimMargin()
 }

@@ -68,18 +68,50 @@ class GitKspr(
         }
     }
 
-    fun getRemoteCommitStatuses(
+    suspend fun getRemoteCommitStatuses(
         refSpec: RefSpec = RefSpec(DEFAULT_LOCAL_OBJECT, DEFAULT_TARGET_REF),
     ): List<RemoteCommitStatus> {
         val remoteName = config.remoteName
         gitClient.fetch(remoteName)
 
         val remoteBranchesById = gitClient.getRemoteBranchesById()
-        return gitClient
-            .getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
+        val stack = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
+        val prsById = if (stack.isNotEmpty()) {
+            ghClient.getPullRequests(stack).associateBy(PullRequest::commitId)
+        } else {
+            emptyMap()
+        }
+        return stack
             .map { commit ->
-                RemoteCommitStatus(commit, remoteBranchesById[commit.id]?.commit)
+                RemoteCommitStatus(
+                    localCommit = commit,
+                    remoteCommit = remoteBranchesById[commit.id]?.commit,
+                    pullRequest = prsById[commit.id],
+                )
             }
+    }
+
+    suspend fun getStatusString(refSpec: RefSpec = RefSpec(DEFAULT_LOCAL_OBJECT, DEFAULT_TARGET_REF)): String {
+        data class StatusBits(val commitIsPushed: Boolean = false, val pullRequestExists: Boolean = false) {
+            fun toList(): List<Boolean> = listOf(commitIsPushed, pullRequestExists, false, false, false)
+        }
+
+        fun Boolean.toCheckOrBlank() = if (this) "v" else "-"
+
+        val statuses = getRemoteCommitStatuses(refSpec)
+        return buildString {
+            append(HEADER)
+            for (status in statuses) {
+                append("[")
+                val statusBits = StatusBits(
+                    commitIsPushed = status.remoteCommit != null,
+                    pullRequestExists = status.pullRequest != null,
+                )
+                append(statusBits.toList().joinToString(separator = " ", transform = Boolean::toCheckOrBlank))
+                append("] ")
+                appendLine(status.localCommit.shortMessage)
+            }
+        }
     }
 
     class SinglePullRequestPerCommitConstraintViolation(override val message: String) : RuntimeException(message)
@@ -192,6 +224,19 @@ class GitKspr(
 
     private fun Commit.toRefSpec(): RefSpec = RefSpec(hash, toRemoteRefName())
     private fun Commit.toRemoteRefName(): String = "${config.remoteBranchPrefix}$id"
+
+    companion object {
+        private val HEADER = """
+            | ┌─ commit is pushed
+            | │ ┌─ pull request exists
+            | │ │ ┌─ github checks pass
+            | │ │ │ ┌── pull request approved
+            | │ │ │ │ ┌─── no merge conflicts
+            | │ │ │ │ │ ┌──── stack check
+            | │ │ │ │ │ │
+
+        """.trimMargin()
+    }
 }
 
 const val DEFAULT_REMOTE_BRANCH_PREFIX = "kspr/"
