@@ -65,7 +65,7 @@ class Push : GitKsprCommand() { // Common options/arguments are inherited from t
 class TestLogging : GitKsprCommand() {
     private val logger = LoggerFactory.getLogger(TestLogging::class.java)
     override suspend fun doRun() {
-        for (level in SLF4JLevel.values().reversed()) {
+        for (level in SLF4JLevel.entries.reversed()) {
             println("Logging message at $level:")
             logger.atLevel(level).log { "I'm a log message at $level level" }
         }
