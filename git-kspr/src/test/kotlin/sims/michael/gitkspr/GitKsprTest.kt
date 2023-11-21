@@ -35,7 +35,7 @@ class GitKsprTest {
                 testCase {
                     repository {
                         commit {
-                            title = "Some commit"
+                            title = "some_commit"
                             localRefs += "development"
                         }
                     }

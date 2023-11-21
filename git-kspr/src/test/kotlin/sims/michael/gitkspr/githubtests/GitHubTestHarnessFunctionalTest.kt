@@ -31,10 +31,10 @@ class GitHubTestHarnessFunctionalTest {
                 testCase {
                     repository {
                         commit {
-                            title = "Commit one"
+                            title = "commit_one"
                         }
                         commit {
-                            title = "Commit two"
+                            title = "commit_two"
                             remoteRefs += "main"
                             localRefs += "main"
                         }
@@ -44,8 +44,8 @@ class GitHubTestHarnessFunctionalTest {
 
             JGitClient(localRepo).logRange("${DEFAULT_TARGET_REF}~2", DEFAULT_TARGET_REF).let { log ->
                 val (commitOne, commitThree) = log
-                assertEquals(commitOne.copy(shortMessage = "Commit one"), commitOne)
-                assertEquals(commitThree.copy(shortMessage = "Commit two"), commitThree)
+                assertEquals(commitOne.copy(shortMessage = "commit_one"), commitOne)
+                assertEquals(commitThree.copy(shortMessage = "commit_two"), commitThree)
             }
         }
     }
@@ -57,20 +57,20 @@ class GitHubTestHarnessFunctionalTest {
                 testCase {
                     repository {
                         commit {
-                            title = "Commit one"
+                            title = "commit_one"
                             branch {
                                 commit {
-                                    title = "Commit one.one"
+                                    title = "commit_one_one"
                                 }
                                 commit {
-                                    title = "Commit one.two"
+                                    title = "commit_one_two"
                                     localRefs += "one"
                                     remoteRefs += "one"
                                 }
                             }
                         }
                         commit {
-                            title = "Commit two"
+                            title = "commit_two"
                             localRefs += "main"
                             remoteRefs += "main"
                         }
@@ -82,13 +82,13 @@ class GitHubTestHarnessFunctionalTest {
 
             assertEquals(2, log.size)
             val (commitOne, commitThree) = log
-            assertEquals(commitOne.copy(shortMessage = "Commit one"), commitOne)
-            assertEquals(commitThree.copy(shortMessage = "Commit two"), commitThree)
+            assertEquals(commitOne.copy(shortMessage = "commit_one"), commitOne)
+            assertEquals(commitThree.copy(shortMessage = "commit_two"), commitThree)
 
             jGitClient.logRange("one~1", "one")
             val (commitOneOne, commitOneTwo) = log
-            assertEquals(commitOneOne.copy(shortMessage = "Commit one"), commitOneOne)
-            assertEquals(commitOneTwo.copy(shortMessage = "Commit two"), commitOneTwo)
+            assertEquals(commitOneOne.copy(shortMessage = "commit_one"), commitOneOne)
+            assertEquals(commitOneTwo.copy(shortMessage = "commit_two"), commitOneTwo)
         }
     }
 
@@ -102,15 +102,15 @@ class GitHubTestHarnessFunctionalTest {
                         commit {
                             title = "B"
                             branch {
-                                commit { title = "f0 A" }
+                                commit { title = "f0_A" }
                                 commit {
-                                    title = "f0 B"
+                                    title = "f0_B"
                                     localRefs += "f0"
                                     remoteRefs += "f0"
                                     branch {
-                                        commit { title = "f1 A" }
+                                        commit { title = "f1_A" }
                                         commit {
-                                            title = "f1 B"
+                                            title = "f1_B"
                                             localRefs += "f1"
                                             remoteRefs += "f1"
                                         }

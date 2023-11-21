@@ -32,10 +32,10 @@ class GitHubTestHarnessTest {
                 testCase {
                     repository {
                         commit {
-                            title = "Commit one"
+                            title = "commit_one"
                         }
                         commit {
-                            title = "Commit two"
+                            title = "commit_two"
                             localRefs += "main"
                         }
                     }
@@ -47,12 +47,12 @@ class GitHubTestHarnessTest {
                 val (commitOne, commitThree) = log
                 assertEquals(
                     commitOne.copy(
-                        shortMessage = "Commit one",
+                        shortMessage = "commit_one",
                         committer = GitHubTestHarness.DEFAULT_COMMITTER,
                     ),
                     commitOne,
                 )
-                assertEquals(commitThree.copy(shortMessage = "Commit two"), commitThree)
+                assertEquals(commitThree.copy(shortMessage = "commit_two"), commitThree)
             }
         }
     }
@@ -64,19 +64,19 @@ class GitHubTestHarnessTest {
                 testCase {
                     repository {
                         commit {
-                            title = "Commit one"
+                            title = "commit_one"
                             branch {
                                 commit {
-                                    title = "Commit one.one"
+                                    title = "commit_one_one"
                                 }
                                 commit {
-                                    title = "Commit one.two"
+                                    title = "commit_one_two"
                                     localRefs += "one"
                                 }
                             }
                         }
                         commit {
-                            title = "Commit two"
+                            title = "commit_two"
                             localRefs += "main"
                         }
                     }
@@ -87,15 +87,15 @@ class GitHubTestHarnessTest {
             jGitClient.logRange("main~2", "main").let { log ->
                 assertEquals(2, log.size)
                 val (commitOne, commitThree) = log
-                assertEquals(commitOne.copy(shortMessage = "Commit one"), commitOne)
-                assertEquals(commitThree.copy(shortMessage = "Commit two"), commitThree)
+                assertEquals(commitOne.copy(shortMessage = "commit_one"), commitOne)
+                assertEquals(commitThree.copy(shortMessage = "commit_two"), commitThree)
             }
 
             jGitClient.logRange("one~2", "one").let { log ->
                 assertEquals(2, log.size)
                 val (commitOneOne, commitOneTwo) = log
-                assertEquals(commitOneOne.copy(shortMessage = "Commit one.one"), commitOneOne)
-                assertEquals(commitOneTwo.copy(shortMessage = "Commit one.two"), commitOneTwo)
+                assertEquals(commitOneOne.copy(shortMessage = "commit_one_one"), commitOneOne)
+                assertEquals(commitOneTwo.copy(shortMessage = "commit_one_two"), commitOneTwo)
             }
         }
     }
@@ -107,20 +107,20 @@ class GitHubTestHarnessTest {
                 testCase {
                     repository {
                         commit {
-                            title = "Commit one"
+                            title = "commit_one"
                             branch {
                                 commit {
-                                    title = "Commit one.one"
+                                    title = "commit_one_one"
                                     localRefs += "one"
                                 }
                                 commit {
-                                    title = "Commit one.two"
+                                    title = "commit_one_two"
                                     remoteRefs += "one"
                                 }
                             }
                         }
                         commit {
-                            title = "Commit two"
+                            title = "commit_two"
                             localRefs += "main"
                             remoteRefs += "main"
                         }
@@ -131,22 +131,22 @@ class GitHubTestHarnessTest {
             localGit.logRange("main~2", "main").let { log ->
                 assertEquals(2, log.size)
                 val (commitOne, commitThree) = log
-                assertEquals(commitOne.copy(shortMessage = "Commit one"), commitOne)
-                assertEquals(commitThree.copy(shortMessage = "Commit two"), commitThree)
+                assertEquals(commitOne.copy(shortMessage = "commit_one"), commitOne)
+                assertEquals(commitThree.copy(shortMessage = "commit_two"), commitThree)
             }
 
             localGit.logRange("one~2", "one").let { log ->
                 assertEquals(2, log.size)
                 val (commitOneOne, commitOneTwo) = log
-                assertEquals(commitOneOne.copy(shortMessage = "Commit one"), commitOneOne)
-                assertEquals(commitOneTwo.copy(shortMessage = "Commit one.one"), commitOneTwo)
+                assertEquals(commitOneOne.copy(shortMessage = "commit_one"), commitOneOne)
+                assertEquals(commitOneTwo.copy(shortMessage = "commit_one_one"), commitOneTwo)
             }
 
             localGit.logRange("$DEFAULT_REMOTE_NAME/one~2", "$DEFAULT_REMOTE_NAME/one").let { log ->
                 assertEquals(2, log.size)
                 val (commitOneOne, commitOneTwo) = log
-                assertEquals(commitOneOne.copy(shortMessage = "Commit one.one"), commitOneOne)
-                assertEquals(commitOneTwo.copy(shortMessage = "Commit one.two"), commitOneTwo)
+                assertEquals(commitOneOne.copy(shortMessage = "commit_one_one"), commitOneOne)
+                assertEquals(commitOneTwo.copy(shortMessage = "commit_one_two"), commitOneTwo)
             }
         }
     }
@@ -307,21 +307,21 @@ class GitHubTestHarnessTest {
                             title = "one"
                             branch {
                                 commit {
-                                    title = "feature one"
+                                    title = "feature_one"
                                     localRefs += "feature/1"
                                     remoteRefs += "feature/1"
                                 }
                             }
                             branch {
                                 commit {
-                                    title = "feature two"
+                                    title = "feature_two"
                                     localRefs += "feature/2"
                                     remoteRefs += "feature/2"
                                 }
                             }
                             branch {
                                 commit {
-                                    title = "feature three"
+                                    title = "feature_three"
                                     localRefs += "feature/3"
                                     remoteRefs += "feature/3"
                                 }
@@ -339,31 +339,31 @@ class GitHubTestHarnessTest {
                 testCase {
                     repository {
                         commit {
-                            title = "one.two"
+                            title = "one_two"
                             branch {
                                 commit {
-                                    title = "feature one.two"
+                                    title = "feature_one_two"
                                     localRefs += "feature/1"
                                     remoteRefs += "feature/1"
                                 }
                             }
                             branch {
                                 commit {
-                                    title = "feature two.two"
+                                    title = "feature_two_two"
                                     localRefs += "feature/2"
                                     remoteRefs += "feature/2"
                                 }
                             }
                             branch {
                                 commit {
-                                    title = "feature three.two"
+                                    title = "feature_three_two"
                                     localRefs += "feature/3"
                                     remoteRefs += "feature/3"
                                 }
                             }
                         }
                         commit {
-                            title = "two.two"
+                            title = "two_two"
                             localRefs += "main"
                             remoteRefs += "main"
                         }
@@ -390,15 +390,15 @@ class GitHubTestHarnessTest {
                         commit {
                             title = "B"
                             branch {
-                                commit { title = "f0 A" }
+                                commit { title = "f0_A" }
                                 commit {
-                                    title = "f0 B"
+                                    title = "f0_B"
                                     localRefs += "f0"
                                     remoteRefs += "f0"
                                     branch {
-                                        commit { title = "f1 A" }
+                                        commit { title = "f1_A" }
                                         commit {
-                                            title = "f1 B"
+                                            title = "f1_B"
                                             localRefs += "f1"
                                             remoteRefs += "f1"
                                         }

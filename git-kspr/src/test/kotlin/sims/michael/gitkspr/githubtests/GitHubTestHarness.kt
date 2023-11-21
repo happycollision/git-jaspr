@@ -255,7 +255,7 @@ class GitHubTestHarness private constructor(
         val commitId = if (id != null) {
             id
         } else {
-            require(!title.matches("\\s+".toRegex())) {
+            require(!title.contains("\\s+".toRegex())) {
                 "ID wasn't provided and title '$title' can\'t be used as it contains whitespace."
             }
             title
