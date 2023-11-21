@@ -261,7 +261,9 @@ class GitHubTestHarness private constructor(
             title
         }
         val message = localGit.appendCommitId(title, commitId)
-        return localGit.add(file.name).commit(message, footerLines)
+        return localGit
+            .add(file.name)
+            .commit(message, mapOf("verify-result" to if (willPassVerification) "0" else "13"))
     }
 
     private fun IdentData.toIdent(): Ident = Ident(name, email)
