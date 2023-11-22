@@ -434,8 +434,14 @@ class GitHubTestHarnessTest {
                 },
             )
 
-            // TODO you are only testing titles here... at the very least we should test identities
-            assertEquals(listOf("thisun", "anothern", "yet anothern"), gitHub.getPullRequests().map(PullRequest::title))
+            assertEquals(
+                listOf("thisun", "anothern", "yet anothern"),
+                gitHub.getPullRequests().map(PullRequest::title),
+            )
+            assertEquals(
+                listOf("thisun", "anothern", "yet anothern"),
+                gitHub.getPullRequests().map(PullRequest::commitId),
+            )
         }
     }
 }

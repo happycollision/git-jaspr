@@ -31,7 +31,7 @@ interface Commit : DataClassFragment {
     val prStartTitle: StringPropertyNotNull
     val prEndTitle: StringPropertyNotNull
     val footerLines: MapPropertyNotNull<StringPropertyNotNull>
-    val willPassVerification: BooleanPropertyNotNull
+    val willPassVerification: BooleanProperty
 }
 
 @GenerateDataClassFragmentDataClass

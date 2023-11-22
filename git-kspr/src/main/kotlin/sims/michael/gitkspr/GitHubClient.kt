@@ -8,6 +8,7 @@ import sims.michael.gitkspr.generated.CreatePullRequest
 import sims.michael.gitkspr.generated.GetPullRequests
 import sims.michael.gitkspr.generated.GetRepositoryId
 import sims.michael.gitkspr.generated.UpdatePullRequest
+import sims.michael.gitkspr.generated.enums.StatusState
 import sims.michael.gitkspr.generated.inputs.CreatePullRequestInput
 import sims.michael.gitkspr.generated.inputs.UpdatePullRequestInput
 import java.util.concurrent.atomic.AtomicReference
@@ -52,7 +53,16 @@ class GitHubClientImpl(
             .mapNotNull { pr ->
                 val commitId = regex.matchEntire(pr.headRefName)?.let { result -> result.groupValues[1] }
                 if (ids?.contains(commitId) != false) {
-                    PullRequest(pr.id, commitId, pr.number, pr.headRefName, pr.baseRefName, pr.title, pr.body)
+                    PullRequest(
+                        pr.id,
+                        commitId,
+                        pr.number,
+                        pr.headRefName,
+                        pr.baseRefName,
+                        pr.title,
+                        pr.body,
+                        pr.commits.nodes?.singleOrNull()?.commit?.statusCheckRollup?.state == StatusState.SUCCESS,
+                    )
                 } else {
                     null
                 }

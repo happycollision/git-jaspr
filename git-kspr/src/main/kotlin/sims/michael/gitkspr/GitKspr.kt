@@ -87,16 +87,21 @@ class GitKspr(
                     localCommit = commit,
                     remoteCommit = remoteBranchesById[commit.id]?.commit,
                     pullRequest = prsById[commit.id],
+                    checksPass = prsById[commit.id]?.checksPass,
                 )
             }
     }
 
     suspend fun getStatusString(refSpec: RefSpec = RefSpec(DEFAULT_LOCAL_OBJECT, DEFAULT_TARGET_REF)): String {
-        data class StatusBits(val commitIsPushed: Boolean = false, val pullRequestExists: Boolean = false) {
-            fun toList(): List<Boolean> = listOf(commitIsPushed, pullRequestExists, false, false, false)
+        data class StatusBits(
+            val commitIsPushed: Boolean = false,
+            val pullRequestExists: Boolean = false,
+            val checksPass: Boolean? = null,
+        ) {
+            fun toList(): List<Boolean?> = listOf(commitIsPushed, pullRequestExists, checksPass, false, false, false)
         }
 
-        fun Boolean.toCheckOrBlank() = if (this) "v" else "-"
+        fun Boolean?.toIndicator() = if (this == true) "+" else "-"
 
         val statuses = getRemoteCommitStatuses(refSpec)
         return buildString {
@@ -106,8 +111,9 @@ class GitKspr(
                 val statusBits = StatusBits(
                     commitIsPushed = status.remoteCommit != null,
                     pullRequestExists = status.pullRequest != null,
+                    checksPass = status.checksPass,
                 )
-                append(statusBits.toList().joinToString(separator = " ", transform = Boolean::toCheckOrBlank))
+                append(statusBits.toList().joinToString(separator = " ", transform = Boolean?::toIndicator))
                 append("] ")
                 appendLine(status.localCommit.shortMessage)
             }

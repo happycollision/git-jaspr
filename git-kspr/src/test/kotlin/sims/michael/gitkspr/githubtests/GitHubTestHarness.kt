@@ -159,9 +159,19 @@ class GitHubTestHarness private constructor(
         val prs = testCase.pullRequests
         if (prs.isNotEmpty()) {
             val existingPrsByTitle = gitHub.getPullRequestsById().associateBy(PullRequest::title)
+            val existingCommitsByTitle = testCase.repository.collectAllCommits().associateBy(CommitData::title)
             for (pr in prs) {
                 val gitHubClient = (ghClientsByUserKey[pr.userKey] ?: gitHub)
-                val newPullRequest = PullRequest(null, null, null, pr.headRef, pr.baseRef, pr.title, pr.body)
+                val newPullRequest = PullRequest(
+                    id = null,
+                    commitId = existingCommitsByTitle[pr.title]?.id,
+                    number = null,
+                    headRefName = pr.headRef,
+                    baseRefName = pr.baseRef,
+                    title = pr.title,
+                    body = pr.body,
+                    checksPass = existingCommitsByTitle[pr.title]?.willPassVerification,
+                )
                 val existingPr = existingPrsByTitle[pr.title]
                 if (existingPr == null) {
                     gitHubClient.createPullRequest(newPullRequest)
@@ -263,7 +273,14 @@ class GitHubTestHarness private constructor(
         val message = localGit.appendCommitId(title, commitId)
         return localGit
             .add(file.name)
-            .commit(message, mapOf("verify-result" to if (willPassVerification) "0" else "13"))
+            .commit(
+                message,
+                if (willPassVerification != null) {
+                    mapOf("verify-result" to if (willPassVerification) "0" else "13")
+                } else {
+                    emptyMap()
+                },
+            )
     }
 
     private fun IdentData.toIdent(): Ident = Ident(name, email)
@@ -408,4 +425,8 @@ class GitHubTestHarness private constructor(
                 .toMap()
         }
     }
+}
+
+private fun BranchData.collectAllCommits(): List<CommitData> {
+    return commits + commits.flatMap { commit -> commit.branches.flatMap { it.collectAllCommits() } }
 }

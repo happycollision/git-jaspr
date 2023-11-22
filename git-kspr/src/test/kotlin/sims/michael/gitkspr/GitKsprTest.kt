@@ -358,9 +358,9 @@ class GitKsprTest {
 
             assertEquals(
                 """
-                    |[- - - - -] one
-                    |[- - - - -] two
-                    |[- - - - -] three
+                    |[- - - - - -] one
+                    |[- - - - - -] two
+                    |[- - - - - -] three
                 """
                     .trimMargin()
                     .toStatusString(),
@@ -390,9 +390,9 @@ class GitKsprTest {
 
             assertEquals(
                 """
-                    |[v - - - -] one
-                    |[- - - - -] two
-                    |[- - - - -] three
+                    |[+ - - - - -] one
+                    |[- - - - - -] two
+                    |[- - - - - -] three
                 """
                     .trimMargin()
                     .toStatusString(),
@@ -427,9 +427,47 @@ class GitKsprTest {
 
             assertEquals(
                 """
-                    |[v v - - -] one
-                    |[- - - - -] two
-                    |[- - - - -] three
+                    |[+ + - - - -] one
+                    |[- - - - - -] two
+                    |[- - - - - -] three
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                gitKspr.getAndPrintStatusString(),
+            )
+        }
+    }
+
+    @Test
+    fun `status one checks pass`() {
+        withTestSetup {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                            willPassVerification = true
+                        }
+                        commit { title = "two" }
+                        commit {
+                            title = "three"
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                        baseRef = "main"
+                        title = "one"
+                    }
+                },
+            )
+
+            assertEquals(
+                """
+                    |[+ + + - - -] one
+                    |[- - - - - -] two
+                    |[- - - - - -] three
                 """
                     .trimMargin()
                     .toStatusString(),

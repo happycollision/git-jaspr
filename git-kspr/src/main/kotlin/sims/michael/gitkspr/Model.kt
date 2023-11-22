@@ -57,6 +57,7 @@ data class RemoteCommitStatus(
     val localCommit: Commit,
     val remoteCommit: Commit?,
     val pullRequest: PullRequest?,
+    val checksPass: Boolean?,
 )
 
 data class PullRequest(
@@ -67,6 +68,7 @@ data class PullRequest(
     val baseRefName: String,
     val title: String,
     val body: String,
+    val checksPass: Boolean? = null,
     // TODO add state?
     // TODO add draft?
     // TODO add commits
