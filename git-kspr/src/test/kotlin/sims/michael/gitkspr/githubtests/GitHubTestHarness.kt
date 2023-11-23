@@ -164,6 +164,9 @@ class GitHubTestHarness private constructor(
                 val gitHubClient = (ghClientsByUserKey[pr.userKey] ?: gitHub)
                 val newPullRequest = PullRequest(
                     id = null,
+                    // TODO
+                    //  This logic is suspect. We should be pulling the commit ID from the headRef or from the
+                    //  footer lines.
                     commitId = commitsByTitle[pr.title]?.id,
                     number = null,
                     headRefName = pr.headRef,

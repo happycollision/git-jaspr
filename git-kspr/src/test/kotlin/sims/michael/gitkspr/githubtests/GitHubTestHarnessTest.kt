@@ -438,10 +438,6 @@ class GitHubTestHarnessTest {
                 listOf("thisun", "anothern", "yet anothern"),
                 gitHub.getPullRequests().map(PullRequest::title),
             )
-            assertEquals(
-                listOf("thisun", "anothern", "yet anothern"),
-                gitHub.getPullRequests().map(PullRequest::commitId),
-            )
         }
     }
 }
