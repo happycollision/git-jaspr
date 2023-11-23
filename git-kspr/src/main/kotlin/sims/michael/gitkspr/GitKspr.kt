@@ -77,7 +77,7 @@ class GitKspr(
         val remoteBranchesById = gitClient.getRemoteBranchesById()
         val stack = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
         val prsById = if (stack.isNotEmpty()) {
-            ghClient.getPullRequests(stack).associateBy(PullRequest::commitId)
+            ghClient.getPullRequests(stack.filter { commit -> commit.id != null }).associateBy(PullRequest::commitId)
         } else {
             emptyMap()
         }
