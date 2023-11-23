@@ -170,6 +170,10 @@ class GitHubTestHarness private constructor(
                     baseRefName = pr.baseRef,
                     title = pr.title,
                     body = pr.body,
+                    // TODO
+                    //   This logic is incomplete. In this context, we could have PRs with multiple commits. If we want
+                    //   to support this so we can test how KSPR reacts, this logic needs to be updated to set
+                    //   checksPass only if _all_ commits in the PR will pass
                     checksPass = existingCommitsByTitle[pr.title]?.willPassVerification,
                 )
                 val existingPr = existingPrsByTitle[pr.title]
