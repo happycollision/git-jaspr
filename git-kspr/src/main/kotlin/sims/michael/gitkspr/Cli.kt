@@ -243,7 +243,7 @@ abstract class GitKsprCommand : CliktCommand() {
             } catch (e: GitKsprException) {
                 printError(e)
             } catch (e: Exception) {
-                logger.logUnhandledException(e.message.orEmpty(), logFile)
+                logger.logUnhandledException(e, logFile)
                 printError(e)
             } finally {
                 logger.trace("Stopping logging context")
@@ -307,8 +307,8 @@ abstract class GitKsprCommand : CliktCommand() {
 
     private fun printError(e: Exception): Nothing = throw PrintMessage(e.message.orEmpty(), 255, true)
 
-    private fun Logger.logUnhandledException(message: String, logFile: String?) {
-        error(message)
+    private fun Logger.logUnhandledException(exception: Exception, logFile: String?) {
+        error(exception.message, exception)
         error(
             "We're sorry, but you've likely encountered a bug. " +
                 if (logFile != null) {
