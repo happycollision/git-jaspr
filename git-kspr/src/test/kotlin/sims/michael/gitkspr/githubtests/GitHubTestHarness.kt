@@ -159,12 +159,12 @@ class GitHubTestHarness private constructor(
         val prs = testCase.pullRequests
         if (prs.isNotEmpty()) {
             val existingPrsByTitle = gitHub.getPullRequestsById().associateBy(PullRequest::title)
-            val existingCommitsByTitle = testCase.repository.collectAllCommits().associateBy(CommitData::title)
+            val commitsByTitle = testCase.repository.collectAllCommits().associateBy(CommitData::title)
             for (pr in prs) {
                 val gitHubClient = (ghClientsByUserKey[pr.userKey] ?: gitHub)
                 val newPullRequest = PullRequest(
                     id = null,
-                    commitId = existingCommitsByTitle[pr.title]?.id,
+                    commitId = commitsByTitle[pr.title]?.id,
                     number = null,
                     headRefName = pr.headRef,
                     baseRefName = pr.baseRef,
@@ -174,7 +174,7 @@ class GitHubTestHarness private constructor(
                     //   This logic is incomplete. In this context, we could have PRs with multiple commits. If we want
                     //   to support this so we can test how KSPR reacts, this logic needs to be updated to set
                     //   checksPass only if _all_ commits in the PR will pass
-                    checksPass = existingCommitsByTitle[pr.title]?.willPassVerification,
+                    checksPass = commitsByTitle[pr.title]?.willPassVerification,
                 )
                 val existingPr = existingPrsByTitle[pr.title]
                 if (existingPr == null) {
