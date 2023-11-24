@@ -349,6 +349,7 @@ class GitHubTestHarness private constructor(
     companion object {
         fun withTestSetup(
             useFakeRemote: Boolean = true,
+            rollBackChanges: Boolean = true,
             configPropertiesFile: File = File(System.getenv("HOME")).resolve(CONFIG_FILE_NAME),
             block: suspend GitHubTestHarness.() -> Unit,
         ): GitHubTestHarness {
@@ -381,7 +382,9 @@ class GitHubTestHarness private constructor(
                     try {
                         block()
                     } finally {
-                        rollbackRemoteChanges()
+                        if (rollBackChanges) {
+                            rollbackRemoteChanges()
+                        }
                         gitLogLocalAndRemote()
                     }
                 }
