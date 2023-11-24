@@ -5,7 +5,10 @@ import com.expediagroup.graphql.client.types.GraphQLClientResponse
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import sims.michael.gitkspr.generated.*
+import sims.michael.gitkspr.generated.enums.PullRequestReviewDecision
+import sims.michael.gitkspr.generated.enums.PullRequestReviewEvent
 import sims.michael.gitkspr.generated.enums.StatusState
+import sims.michael.gitkspr.generated.inputs.AddPullRequestReviewInput
 import sims.michael.gitkspr.generated.inputs.CreatePullRequestInput
 import sims.michael.gitkspr.generated.inputs.UpdatePullRequestInput
 import java.util.concurrent.atomic.AtomicReference
@@ -15,6 +18,7 @@ interface GitHubClient {
     suspend fun getPullRequestsById(commitFilter: List<String>? = null): List<PullRequest>
     suspend fun createPullRequest(pullRequest: PullRequest): PullRequest
     suspend fun updatePullRequest(pullRequest: PullRequest)
+    suspend fun approvePullRequest(pullRequest: PullRequest)
 }
 
 class GitHubClientImpl(
@@ -61,6 +65,7 @@ class GitHubClientImpl(
                         pr.title,
                         pr.body,
                         pr.commits.nodes?.singleOrNull()?.commit?.statusCheckRollup?.state == StatusState.SUCCESS,
+                        pr.reviewDecision == PullRequestReviewDecision.APPROVED,
                     )
                 } else {
                     null
@@ -110,6 +115,7 @@ class GitHubClientImpl(
             pr.title,
             pr.body,
             pr.commits.nodes?.singleOrNull()?.commit?.statusCheckRollup?.state == StatusState.SUCCESS,
+            pr.reviewDecision == PullRequestReviewDecision.APPROVED,
         )
     }
 
@@ -131,6 +137,25 @@ class GitHubClientImpl(
             )
             .also { response ->
                 response.checkNoErrors { logger.error("Error updating PR #{}", pullRequest.number) }
+            }
+    }
+
+    override suspend fun approvePullRequest(pullRequest: PullRequest) {
+        logger.trace("approvePullRequest {}", "")
+        checkNotNull(pullRequest.id) { "Cannot approve $pullRequest without an ID" }
+        delegate
+            .execute(
+                AddPullRequestReview(
+                    AddPullRequestReview.Variables(
+                        AddPullRequestReviewInput(
+                            pullRequestId = pullRequest.id,
+                            event = PullRequestReviewEvent.APPROVE,
+                        ),
+                    ),
+                ),
+            )
+            .also { response ->
+                response.checkNoErrors { logger.error("Error approving PR #{}", pullRequest.number) }
             }
     }
 

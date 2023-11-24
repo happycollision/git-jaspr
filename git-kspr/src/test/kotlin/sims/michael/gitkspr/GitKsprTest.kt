@@ -476,6 +476,61 @@ class GitKsprTest {
         }
     }
 
+    @Test
+    fun `approved one`() {
+        withTestSetup {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = true
+                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}two"
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}three"
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                        baseRef = "main"
+                        title = "one"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}two"
+                        baseRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                        title = "two"
+                    }
+                    pullRequest {
+                        headRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}three"
+                        baseRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}two"
+                        title = "three"
+                    }
+                },
+            )
+
+            assertEquals(
+                """
+                    |[+ + + + - -] one
+                    |[+ + + - - -] two
+                    |[+ + + - - -] three
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                gitKspr.getAndPrintStatusString(),
+            )
+        }
+    }
+
     @Suppress("SameParameterValue")
     private fun setGitCommitterInfo(name: String, email: String) {
         SystemReader

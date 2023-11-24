@@ -1,10 +1,8 @@
 package sims.michael.gitkspr
 
-import kotlinx.coroutines.delay
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInfo
 import org.slf4j.LoggerFactory
-import sims.michael.gitkspr.githubtests.GitHubTestHarness
 import sims.michael.gitkspr.githubtests.GitHubTestHarness.Companion.withTestSetup
 import sims.michael.gitkspr.githubtests.generatedtestdsl.testCase
 import sims.michael.gitkspr.testing.FunctionalTest
@@ -171,7 +169,13 @@ class GitKsprFunctionalTest {
             System.setProperty(WORKING_DIR_PROPERTY_NAME, localRepo.absolutePath)
             gitKspr.push()
 
-            val status = waitForFinalStatusString()
+            // RUN WITH DEBUGGER AND PAUSE HERE UNTIL GH ACTIONS FINISH
+            //
+            // TODO
+            //   The logic to wait for the final status without some sort of callback from the GitHub API is very
+            //   tricky, so I'm punting on it for now. Use the debugger and a good old breakpoint on the following line.
+            //   Once hit, monitor the GitHub UI and resume once all of the GH actions are finished.
+            val status = gitKspr.getStatusString()
 
             assertEquals(
                 """
@@ -210,7 +214,13 @@ class GitKsprFunctionalTest {
             System.setProperty(WORKING_DIR_PROPERTY_NAME, localRepo.absolutePath)
             gitKspr.push()
 
-            val status = waitForFinalStatusString()
+            // RUN WITH DEBUGGER AND PAUSE HERE UNTIL GH ACTIONS FINISH
+            //
+            // TODO
+            //   The logic to wait for the final status without some sort of callback from the GitHub API is very
+            //   tricky, so I'm punting on it for now. Use the debugger and a good old breakpoint on the following line.
+            //   Once hit, monitor the GitHub UI and resume once all of the GH actions are finished.
+            val status = gitKspr.getStatusString()
 
             assertEquals(
                 """
@@ -225,25 +235,69 @@ class GitKsprFunctionalTest {
         }
     }
 
-    private suspend fun GitHubTestHarness.waitForFinalStatusString(
-        maxAttempts: Int = 25,
-        delayBetweenAttemptsMillis: Long = 2_000,
-    ): String {
-        suspend fun GitHubTestHarness.status(attemptNum: Int): String {
-            logger.debug("waitForFinalStatusString attemptNum {}", attemptNum)
-            return gitKspr.getAndPrintStatusString()
+    @Test
+    fun `approve middle`() {
+        withTestSetup(useFakeRemote = false, rollBackChanges = true) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = true
+                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}two"
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}three"
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                        baseRef = "main"
+                        title = "one"
+                    }
+                    pullRequest {
+                        headRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}two"
+                        baseRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                        title = "two"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}three"
+                        baseRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}two"
+                        title = "three"
+                    }
+                },
+            )
+
+            System.setProperty(WORKING_DIR_PROPERTY_NAME, localRepo.absolutePath)
+            gitKspr.push()
+
+            // RUN WITH DEBUGGER AND PAUSE HERE UNTIL GH ACTIONS FINISH
+            //
+            // TODO
+            //   The logic to wait for the final status without some sort of callback from the GitHub API is very
+            //   tricky, so I'm punting on it for now. Use the debugger and a good old breakpoint on the following line.
+            //   Once hit, monitor the GitHub UI and resume once all of the GH actions are finished.
+            val status = gitKspr.getStatusString()
+
+            assertEquals(
+                """
+                    |[+ + + - - -] one
+                    |[+ + + + - -] two
+                    |[+ + + - - -] three
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                status,
+            )
         }
-        val firstStatus = status(attemptNum = 1)
-        var lastStatus = firstStatus
-        for (attemptNum in 2..maxAttempts) {
-            delay(delayBetweenAttemptsMillis)
-            val thisStatus = status(attemptNum)
-            if (thisStatus == lastStatus && thisStatus != firstStatus) {
-                logger.debug("waitForFinalStatusString settled on attemptNum {}", attemptNum)
-                break
-            }
-            lastStatus = thisStatus
-        }
-        return lastStatus
     }
 }

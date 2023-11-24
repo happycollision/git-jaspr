@@ -88,6 +88,7 @@ class GitKspr(
                     remoteCommit = remoteBranchesById[commit.id]?.commit,
                     pullRequest = prsById[commit.id],
                     checksPass = prsById[commit.id]?.checksPass,
+                    approved = prsById[commit.id]?.approved,
                 )
             }
     }
@@ -97,8 +98,9 @@ class GitKspr(
             val commitIsPushed: Boolean = false,
             val pullRequestExists: Boolean = false,
             val checksPass: Boolean? = null,
+            val approved: Boolean? = null,
         ) {
-            fun toList(): List<Boolean?> = listOf(commitIsPushed, pullRequestExists, checksPass, false, false, false)
+            fun toList(): List<Boolean?> = listOf(commitIsPushed, pullRequestExists, checksPass, approved, false, false)
         }
 
         fun Boolean?.toIndicator() = if (this == true) "+" else if (this == null) "?" else "-"
@@ -112,6 +114,7 @@ class GitKspr(
                     commitIsPushed = status.remoteCommit != null,
                     pullRequestExists = status.pullRequest != null,
                     checksPass = if (status.pullRequest == null) false else status.checksPass,
+                    approved = if (status.pullRequest == null) false else status.approved,
                 )
                 append(statusBits.toList().joinToString(separator = " ", transform = Boolean?::toIndicator))
                 append("] ")

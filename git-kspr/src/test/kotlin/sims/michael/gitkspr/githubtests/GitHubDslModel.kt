@@ -47,4 +47,5 @@ interface PullRequest : DataClassFragment {
     val title: StringPropertyNotNull
     val body: StringPropertyNotNull
     val userKey: StringPropertyNotNull
+    val willBeApprovedByUserKey: StringProperty
 }

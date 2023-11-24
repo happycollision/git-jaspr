@@ -39,6 +39,10 @@ class GitHubStubClient(private val remoteBranchPrefix: String) : GitHubClient {
             }
     }
 
+    override suspend fun approvePullRequest(pullRequest: PullRequest) {
+        // No op
+    }
+
     override suspend fun updatePullRequest(pullRequest: PullRequest) {
         logger.trace("updatePullRequest {}", pullRequest)
         val i = prs.indexOfFirst { it.id == pullRequest.id }

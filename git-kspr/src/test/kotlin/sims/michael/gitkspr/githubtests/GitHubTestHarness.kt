@@ -178,12 +178,18 @@ class GitHubTestHarness private constructor(
                     //   to support this so we can test how KSPR reacts, this logic needs to be updated to set
                     //   checksPass only if _all_ commits in the PR will pass
                     checksPass = commitsByTitle[pr.title]?.willPassVerification,
+                    approved = pr.willBeApprovedByUserKey?.isNotBlank() == true,
                 )
                 val existingPr = existingPrsByTitle[pr.title]
-                if (existingPr == null) {
+                val createdOrUpdatedPr = if (existingPr == null) {
                     gitHubClient.createPullRequest(newPullRequest)
                 } else {
-                    gitHubClient.updatePullRequest(newPullRequest.copy(id = existingPr.id))
+                    newPullRequest
+                        .copy(id = existingPr.id)
+                        .also { gitHubClient.updatePullRequest(it) }
+                }
+                if (!useFakeRemote && pr.willBeApprovedByUserKey?.isNotBlank() == true) {
+                    ghClientsByUserKey[pr.willBeApprovedByUserKey]?.approvePullRequest(createdOrUpdatedPr)
                 }
             }
         }
