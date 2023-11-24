@@ -3,6 +3,23 @@ mutation createPullRequest($input: CreatePullRequestInput!) {
         pullRequest {
             id
             number
+            title
+            body
+            baseRefName
+            headRefName
+            reviewDecision
+            commits(first:100) {
+                nodes {
+                    commit {
+                        oid
+                        messageHeadline
+                        messageBody
+                        statusCheckRollup {
+                            state
+                        }
+                    }
+                }
+            }
         }
     }
 }

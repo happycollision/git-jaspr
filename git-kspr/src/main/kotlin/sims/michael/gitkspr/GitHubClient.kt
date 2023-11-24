@@ -4,10 +4,7 @@ import com.expediagroup.graphql.client.GraphQLClient
 import com.expediagroup.graphql.client.types.GraphQLClientResponse
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import sims.michael.gitkspr.generated.CreatePullRequest
-import sims.michael.gitkspr.generated.GetPullRequests
-import sims.michael.gitkspr.generated.GetRepositoryId
-import sims.michael.gitkspr.generated.UpdatePullRequest
+import sims.michael.gitkspr.generated.*
 import sims.michael.gitkspr.generated.enums.StatusState
 import sims.michael.gitkspr.generated.inputs.CreatePullRequestInput
 import sims.michael.gitkspr.generated.inputs.UpdatePullRequestInput
@@ -16,7 +13,7 @@ import java.util.concurrent.atomic.AtomicReference
 interface GitHubClient {
     suspend fun getPullRequests(commitFilter: List<Commit>? = null): List<PullRequest>
     suspend fun getPullRequestsById(commitFilter: List<String>? = null): List<PullRequest>
-    suspend fun createPullRequest(pullRequest: PullRequest)
+    suspend fun createPullRequest(pullRequest: PullRequest): PullRequest
     suspend fun updatePullRequest(pullRequest: PullRequest)
 }
 
@@ -72,10 +69,10 @@ class GitHubClientImpl(
             .also { pullRequests -> logger.trace("getPullRequests {}: {}", pullRequests.size, pullRequests) }
     }
 
-    override suspend fun createPullRequest(pullRequest: PullRequest) {
+    override suspend fun createPullRequest(pullRequest: PullRequest): PullRequest {
         logger.trace("createPullRequest {}", pullRequest)
         check(pullRequest.id == null) { "Cannot create $pullRequest which already exists" }
-        delegate
+        val pr = delegate
             .execute(
                 CreatePullRequest(
                     CreatePullRequest.Variables(
@@ -92,6 +89,28 @@ class GitHubClientImpl(
             .also { response ->
                 response.checkNoErrors { logger.error("Error creating {}", pullRequest) }
             }
+            .data
+            ?.createPullRequest
+            ?.pullRequest
+
+        checkNotNull(pr) { "createPullRequest returned a null result" }
+
+        // TODO
+        //  There's some duplicated logic here, although the creation of the pull request isn't technically
+        //  duped since CreatePullRequest.Result is different from GetPullRequests.Result even though they both
+        //  contain a PullRequest type
+        val regex = "^$remoteBranchPrefix(.*?)$".toRegex()
+        val commitId = regex.matchEntire(pr.headRefName)?.let { result -> result.groupValues[1] }
+        return PullRequest(
+            pr.id,
+            commitId,
+            pr.number,
+            pr.headRefName,
+            pr.baseRefName,
+            pr.title,
+            pr.body,
+            pr.commits.nodes?.singleOrNull()?.commit?.statusCheckRollup?.state == StatusState.SUCCESS,
+        )
     }
 
     override suspend fun updatePullRequest(pullRequest: PullRequest) {

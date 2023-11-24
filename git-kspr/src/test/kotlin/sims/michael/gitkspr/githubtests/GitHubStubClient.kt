@@ -23,17 +23,20 @@ class GitHubStubClient(private val remoteBranchPrefix: String) : GitHubClient {
         return prs.filter { it.commitId in commitFilter.orEmpty() }
     }
 
-    override suspend fun createPullRequest(pullRequest: PullRequest) {
+    override suspend fun createPullRequest(pullRequest: PullRequest): PullRequest {
         val regex = "^$remoteBranchPrefix(.*?)$".toRegex()
         val commitId = regex.matchEntire(pullRequest.headRefName)?.let { result -> result.groupValues[1] }
-        // Assign a unique id and the next PR number... simulates what GitHub would do
-        val pullRequestToAdd = pullRequest.copy(
-            id = generateUuid(8),
-            number = prNumberIterator.nextInt(),
-            commitId = pullRequest.commitId ?: commitId,
-        )
-        logger.trace("createPullRequest {}", pullRequestToAdd)
-        prs.add(pullRequestToAdd)
+        return pullRequest
+            .copy(
+                // Assign a unique id and the next PR number... simulates what GitHub would do
+                id = generateUuid(8),
+                number = prNumberIterator.nextInt(),
+                commitId = pullRequest.commitId ?: commitId,
+            )
+            .also { pullRequestToAdd ->
+                logger.trace("createPullRequest {}", pullRequestToAdd)
+                prs.add(pullRequestToAdd)
+            }
     }
 
     override suspend fun updatePullRequest(pullRequest: PullRequest) {
