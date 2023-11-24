@@ -427,7 +427,7 @@ class GitKsprTest {
 
             assertEquals(
                 """
-                    |[+ + - - - -] one
+                    |[+ + ? - - -] one
                     |[- - - - - -] two
                     |[- - - - - -] three
                 """

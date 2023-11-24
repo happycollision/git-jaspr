@@ -101,7 +101,7 @@ class GitKspr(
             fun toList(): List<Boolean?> = listOf(commitIsPushed, pullRequestExists, checksPass, false, false, false)
         }
 
-        fun Boolean?.toIndicator() = if (this == true) "+" else "-"
+        fun Boolean?.toIndicator() = if (this == true) "+" else if (this == null) "?" else "-"
 
         val statuses = getRemoteCommitStatuses(refSpec)
         return buildString {
@@ -111,7 +111,7 @@ class GitKspr(
                 val statusBits = StatusBits(
                     commitIsPushed = status.remoteCommit != null,
                     pullRequestExists = status.pullRequest != null,
-                    checksPass = status.checksPass,
+                    checksPass = if (status.pullRequest == null) false else status.checksPass,
                 )
                 append(statusBits.toList().joinToString(separator = " ", transform = Boolean?::toIndicator))
                 append("] ")
