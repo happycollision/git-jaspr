@@ -487,14 +487,15 @@ class GitKsprTest {
                     },
             )
     }
+}
 
-    private suspend fun GitKspr.getAndPrintStatusString() = getStatusString().also(::print)
+suspend fun GitKspr.getAndPrintStatusString() = getStatusString().also(::print)
 
-    // It may seem silly to repeat what is already defined in GitKspr.HEADER, but if a dev changes the header I want
-    // these tests to break so that any such changes are very deliberate. This is a compromise between referencing the
-    // same value from both tests and prod and the other extreme of repeating this header text manually in every test.
-    private fun String.toStatusString() =
-        """
+// It may seem silly to repeat what is already defined in GitKspr.HEADER, but if a dev changes the header I want
+// these tests to break so that any such changes are very deliberate. This is a compromise between referencing the
+// same value from both tests and prod and the other extreme of repeating this header text manually in every test.
+fun String.toStatusString() =
+    """
             | ┌─ commit is pushed
             | │ ┌─ pull request exists
             | │ │ ┌─ github checks pass
@@ -504,5 +505,4 @@ class GitKsprTest {
             | │ │ │ │ │ │
             |$this
 
-        """.trimMargin()
-}
+    """.trimMargin()

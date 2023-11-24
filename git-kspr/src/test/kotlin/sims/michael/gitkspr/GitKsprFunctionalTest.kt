@@ -1,8 +1,10 @@
 package sims.michael.gitkspr
 
+import kotlinx.coroutines.delay
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInfo
 import org.slf4j.LoggerFactory
+import sims.michael.gitkspr.githubtests.GitHubTestHarness
 import sims.michael.gitkspr.githubtests.GitHubTestHarness.Companion.withTestSetup
 import sims.michael.gitkspr.githubtests.generatedtestdsl.testCase
 import sims.michael.gitkspr.testing.FunctionalTest
@@ -144,5 +146,104 @@ class GitKsprFunctionalTest {
                 .toSet()
             assertEquals(commits, prs)
         }
+    }
+
+    @Test
+    fun `status checks all pass`() {
+        withTestSetup(useFakeRemote = false, rollBackChanges = true) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "A"
+                        }
+                        commit {
+                            title = "B"
+                        }
+                        commit {
+                            title = "C"
+                            localRefs += "main"
+                        }
+                    }
+                },
+            )
+
+            System.setProperty(WORKING_DIR_PROPERTY_NAME, localRepo.absolutePath)
+            gitKspr.push()
+
+            val status = waitForFinalStatusString()
+
+            assertEquals(
+                """
+                    |[+ + + - - -] A
+                    |[+ + + - - -] B
+                    |[+ + + - - -] C
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                status,
+            )
+        }
+    }
+
+    @Test
+    fun `status checks middle fails`() {
+        withTestSetup(useFakeRemote = false, rollBackChanges = true) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "A"
+                        }
+                        commit {
+                            title = "B"
+                            willPassVerification = false
+                        }
+                        commit {
+                            title = "C"
+                            localRefs += "main"
+                        }
+                    }
+                },
+            )
+
+            System.setProperty(WORKING_DIR_PROPERTY_NAME, localRepo.absolutePath)
+            gitKspr.push()
+
+            val status = waitForFinalStatusString()
+
+            assertEquals(
+                """
+                    |[+ + + - - -] A
+                    |[+ + - - - -] B
+                    |[+ + + - - -] C
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                status,
+            )
+        }
+    }
+
+    private suspend fun GitHubTestHarness.waitForFinalStatusString(
+        maxAttempts: Int = 25,
+        delayBetweenAttemptsMillis: Long = 2_000,
+    ): String {
+        suspend fun GitHubTestHarness.status(attemptNum: Int): String {
+            logger.debug("waitForFinalStatusString attemptNum {}", attemptNum)
+            return gitKspr.getAndPrintStatusString()
+        }
+        val firstStatus = status(attemptNum = 1)
+        var lastStatus = firstStatus
+        for (attemptNum in 2..maxAttempts) {
+            delay(delayBetweenAttemptsMillis)
+            val thisStatus = status(attemptNum)
+            if (thisStatus == lastStatus && thisStatus != firstStatus) {
+                logger.debug("waitForFinalStatusString settled on attemptNum {}", attemptNum)
+                break
+            }
+            lastStatus = thisStatus
+        }
+        return lastStatus
     }
 }
