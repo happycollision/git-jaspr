@@ -526,7 +526,7 @@ class GitKsprTest {
 
             assertEquals(
                 """
-                    |[+ + + + -] one
+                    |[+ + + + +] one
                     |[+ + + - -] two
                     |[+ + + - -] three
                 """
@@ -670,6 +670,63 @@ class GitKsprTest {
                     |
                     |Your stack is out-of-date with the base branch (2 commits behind main).
                     |You'll need to rebase it (`git rebase origin/main`) before your stack will be mergeable.
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                gitKspr.getAndPrintStatusString(),
+            )
+        }
+    }
+
+    @Test
+    fun `stack check all mergeable`() {
+        withTestSetup {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("one")
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("two")
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("three")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
+                        title = "two"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                },
+            )
+
+            assertEquals(
+                """
+                    |[+ + + + +] one
+                    |[+ + + + +] two
+                    |[+ + + + +] three
                 """
                     .trimMargin()
                     .toStatusString(),

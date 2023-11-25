@@ -97,7 +97,7 @@ class GitKspr(
             val checksPass: Boolean? = null,
             val approved: Boolean? = null,
         ) {
-            fun toList(): List<Boolean?> = listOf(commitIsPushed, pullRequestExists, checksPass, approved, false)
+            fun toList(): List<Boolean?> = listOf(commitIsPushed, pullRequestExists, checksPass, approved)
         }
 
         fun Boolean?.toIndicator() = if (this == true) "+" else if (this == null) "?" else "-"
@@ -107,8 +107,10 @@ class GitKspr(
 
         val stack = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
         val statuses = getRemoteCommitStatuses(stack)
+        val numCommitsBehind = gitClient.logRange(stack.last().hash, "$remoteName/${refSpec.remoteRef}").size
         return buildString {
             append(HEADER)
+            var stackCheck = numCommitsBehind == 0
             for (status in statuses) {
                 append("[")
                 val statusBits = StatusBits(
@@ -117,11 +119,12 @@ class GitKspr(
                     checksPass = if (status.pullRequest == null) false else status.checksPass,
                     approved = if (status.pullRequest == null) false else status.approved,
                 )
-                append(statusBits.toList().joinToString(separator = " ", transform = Boolean?::toIndicator))
+                val flags = statusBits.toList()
+                if (!flags.all { it == true }) stackCheck = false
+                append((flags + stackCheck).joinToString(separator = " ", transform = Boolean?::toIndicator))
                 append("] ")
                 appendLine(status.localCommit.shortMessage)
             }
-            val numCommitsBehind = gitClient.logRange(stack.last().hash, "$remoteName/${refSpec.remoteRef}").size
             if (numCommitsBehind > 0) {
                 appendLine()
                 append("Your stack is out-of-date with the base branch ")
