@@ -357,6 +357,7 @@ class GitHubTestHarness private constructor(
             useFakeRemote: Boolean = true,
             rollBackChanges: Boolean = true,
             configPropertiesFile: File = File(System.getenv("HOME")).resolve(CONFIG_FILE_NAME),
+            remoteBranchPrefix: String = DEFAULT_REMOTE_BRANCH_PREFIX,
             block: suspend GitHubTestHarness.() -> Unit,
         ): GitHubTestHarness {
             val (localRepo, remoteRepo) = createTempDir().createRepoDirs()
@@ -380,7 +381,7 @@ class GitHubTestHarness private constructor(
                     gitHubInfo = requireNotNull(extractGitHubInfoFromUri(githubUri)) {
                         "Couldn't extract github info from $githubUri defined in $configPropertiesFile"
                     },
-                    DEFAULT_REMOTE_BRANCH_PREFIX,
+                    remoteBranchPrefix,
                     configByUserKey,
                     useFakeRemote,
                 )
