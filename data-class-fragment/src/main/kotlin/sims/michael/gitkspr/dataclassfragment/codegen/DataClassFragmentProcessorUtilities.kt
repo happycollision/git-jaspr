@@ -142,7 +142,7 @@ private fun ExecutableElement.toPropertyName(): String? =
         ?.get(1)
         ?.replaceFirstChar(Char::lowercase)
 
-private val PROPERTY_GETTER_METHOD_REGEX = Regex("(?:get)?([A-Za-z_].*)")
+private val PROPERTY_GETTER_METHOD_REGEX = "(?:get)?([A-Za-z_].*)".toRegex()
 
 interface NamedColumnTypeVisitor<T> {
     fun visitColumn(): T

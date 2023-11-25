@@ -23,6 +23,6 @@ fun generateUuid(length: Int = 8): String {
     val fullUuid = UUID.randomUUID().toString()
     // Version 4 UUID... extract the time-low and node sections, skipping the portions that contain the version and
     // variant
-    val (eight, twelve) = requireNotNull(Regex("(.{8})(?:-.{4}){3}-(.{12})").matchEntire(fullUuid)).destructured
+    val (eight, twelve) = requireNotNull("(.{8})(?:-.{4}){3}-(.{12})".toRegex().matchEntire(fullUuid)).destructured
     return (eight + twelve).take(length)
 }
