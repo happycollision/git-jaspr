@@ -149,7 +149,7 @@ class GitKspr(
         val branchNames = branches.map(RemoteBranch::name).toSet()
         val nextRevisionById = branchNames
             .mapNotNull { branchName ->
-                getRemoteRefParts(branchName, config.remoteBranchPrefix)?.let { (id, revisionNumber) ->
+                getRemoteRefParts(branchName, config.remoteBranchPrefix)?.let { (_, id, revisionNumber) ->
                     id to (revisionNumber ?: 0) + 1
                 }
             }
@@ -230,7 +230,7 @@ class GitKspr(
     }
 
     private fun Commit.toRefSpec(): RefSpec = RefSpec(hash, toRemoteRefName())
-    private fun Commit.toRemoteRefName(): String = buildRemoteRef(checkNotNull(id), config.remoteBranchPrefix)
+    private fun Commit.toRemoteRefName(): String = buildRemoteRef(checkNotNull(id), prefix = config.remoteBranchPrefix)
 
     companion object {
         private val HEADER = """

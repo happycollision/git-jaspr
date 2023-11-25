@@ -5,17 +5,27 @@ object RemoteRefEncoding {
 
     const val REV_NUM_DELIMITER = "_"
 
-    fun buildRemoteRef(commitId: String, prefix: String = DEFAULT_REMOTE_BRANCH_PREFIX): String =
-        listOf(prefix, commitId).joinToString("/")
+    fun buildRemoteRef(
+        commitId: String,
+        targetRef: String = DEFAULT_TARGET_REF,
+        prefix: String = DEFAULT_REMOTE_BRANCH_PREFIX,
+    ): String = listOf(prefix, targetRef, commitId).joinToString("/")
 
     fun getRemoteRefParts(remoteRef: String, remoteBranchPrefix: String): RemoteRefParts? =
-        "^$remoteBranchPrefix/(.*?)(?:$REV_NUM_DELIMITER(\\d+))?$"
+        "^$remoteBranchPrefix/(.*/)(.*?)(?:$REV_NUM_DELIMITER(\\d+))?$"
             .toRegex()
             .matchEntire(remoteRef)
-            ?.let { result -> RemoteRefParts(result.groupValues[1], result.groupValues.getOrNull(2)?.toIntOrNull()) }
+            ?.let { result ->
+                val values = result.groupValues
+                RemoteRefParts(
+                    targetRef = values[1],
+                    commitId = values[2],
+                    values.getOrNull(3)?.toIntOrNull(),
+                )
+            }
 
     fun getCommitIdFromRemoteRef(remoteRef: String, remoteBranchPrefix: String): String? =
         getRemoteRefParts(remoteRef, remoteBranchPrefix)?.commitId
 
-    data class RemoteRefParts(val commitId: String, val revisionNum: Int?)
+    data class RemoteRefParts(val targetRef: String, val commitId: String, val revisionNum: Int?)
 }

@@ -252,10 +252,10 @@ class GitKsprTest {
 
             assertEquals(
                 setOf(
-                    "kspr/1 -> main",
-                    "kspr/2 -> kspr/1",
-                    "kspr/4 -> kspr/2",
-                    "kspr/3 -> kspr/4",
+                    "kspr/main/1 -> main",
+                    "kspr/main/2 -> kspr/main/1",
+                    "kspr/main/4 -> kspr/main/2",
+                    "kspr/main/3 -> kspr/main/4",
                 ),
                 gitHub.getPullRequests().map(PullRequest::headToBaseString).toSet(),
             )
@@ -280,10 +280,10 @@ class GitKsprTest {
 
             assertEquals(
                 setOf(
-                    "kspr/1 -> main",
-                    "kspr/2 -> kspr/1",
-                    "kspr/3 -> kspr/2",
-                    "kspr/4 -> kspr/3",
+                    "kspr/main/1 -> main",
+                    "kspr/main/2 -> kspr/main/1",
+                    "kspr/main/3 -> kspr/main/2",
+                    "kspr/main/4 -> kspr/main/3",
                 ),
                 gitHub.getPullRequests().map(PullRequest::headToBaseString).toSet(),
             )
