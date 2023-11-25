@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import org.slf4j.LoggerFactory
 import org.zeroturnaround.exec.ProcessExecutor
+import sims.michael.gitkspr.RemoteRefEncoding.DEFAULT_REMOTE_BRANCH_PREFIX
 import sims.michael.gitkspr.testing.toStringWithClickableURI
 import java.io.File
 import java.nio.file.Files

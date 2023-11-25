@@ -4,6 +4,7 @@ import com.expediagroup.graphql.client.GraphQLClient
 import com.expediagroup.graphql.client.types.GraphQLClientResponse
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import sims.michael.gitkspr.RemoteRefEncoding.getCommitIdFromRemoteRef
 import sims.michael.gitkspr.generated.*
 import sims.michael.gitkspr.generated.enums.PullRequestReviewDecision
 import sims.michael.gitkspr.generated.enums.PullRequestReviewEvent
@@ -42,7 +43,6 @@ class GitHubClientImpl(
         // It'd be nice if the server could filter this for us but there doesn't seem to be a good way to do that.
         val ids = commitFilter?.requireNoNulls()?.toSet()
 
-        val regex = "^$remoteBranchPrefix(.*?)$".toRegex()
         val response = delegate
             .execute(GetPullRequests(GetPullRequests.Variables(gitHubInfo.owner, gitHubInfo.name)))
             .data
@@ -54,7 +54,7 @@ class GitHubClientImpl(
             .orEmpty()
             .filterNotNull()
             .mapNotNull { pr ->
-                val commitId = regex.matchEntire(pr.headRefName)?.let { result -> result.groupValues[1] }
+                val commitId = getCommitIdFromRemoteRef(pr.headRefName, remoteBranchPrefix)
                 if (ids?.contains(commitId) != false) {
                     PullRequest(
                         pr.id,
@@ -104,8 +104,7 @@ class GitHubClientImpl(
         //  There's some duplicated logic here, although the creation of the pull request isn't technically
         //  duped since CreatePullRequest.Result is different from GetPullRequests.Result even though they both
         //  contain a PullRequest type
-        val regex = "^$remoteBranchPrefix(.*?)$".toRegex()
-        val commitId = regex.matchEntire(pr.headRefName)?.let { result -> result.groupValues[1] }
+        val commitId = getCommitIdFromRemoteRef(pr.headRefName, remoteBranchPrefix)
         return PullRequest(
             pr.id,
             commitId,

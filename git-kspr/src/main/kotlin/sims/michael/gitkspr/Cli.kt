@@ -24,6 +24,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import sims.michael.gitkspr.RemoteRefEncoding.DEFAULT_REMOTE_BRANCH_PREFIX
 import java.io.File
 import org.slf4j.event.Level as SLF4JLevel
 

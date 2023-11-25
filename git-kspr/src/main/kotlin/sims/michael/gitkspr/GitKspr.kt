@@ -1,7 +1,9 @@
 package sims.michael.gitkspr
 
 import org.slf4j.LoggerFactory
-import java.lang.RuntimeException
+import sims.michael.gitkspr.RemoteRefEncoding.REV_NUM_DELIMITER
+import sims.michael.gitkspr.RemoteRefEncoding.buildRemoteRef
+import sims.michael.gitkspr.RemoteRefEncoding.getRemoteRefParts
 
 class GitKspr(
     private val ghClient: GitHubClient,
@@ -145,14 +147,10 @@ class GitKspr(
     ): List<RefSpec> {
         logger.trace("getRevisionHistoryRefs")
         val branchNames = branches.map(RemoteBranch::name).toSet()
-
-        val delimiter = "_"
-        val regex = "^${config.remoteBranchPrefix}(.*?)(?:$delimiter(\\d+))?$".toRegex()
         val nextRevisionById = branchNames
             .mapNotNull { branchName ->
-                regex.matchEntire(branchName)?.let { matchResult ->
-                    val (id, revisionNumber) = matchResult.destructured
-                    id to (revisionNumber.toIntOrNull() ?: 0) + 1
+                getRemoteRefParts(branchName, config.remoteBranchPrefix)?.let { (id, revisionNumber) ->
+                    id to (revisionNumber ?: 0) + 1
                 }
             }
             .sortedBy { (_, revisionNumber) -> revisionNumber }
@@ -163,7 +161,7 @@ class GitKspr(
                 nextRevisionById[commit.id]
                     ?.let { revision ->
                         val refName = commit.toRemoteRefName()
-                        RefSpec("$remoteName/$refName", "%s%s%02d".format(refName, delimiter, revision))
+                        RefSpec("$remoteName/$refName", "%s%s%02d".format(refName, REV_NUM_DELIMITER, revision))
                     }
             }
             .also { refSpecs -> logger.trace("getRevisionHistoryRefs: {}", refSpecs) }
@@ -232,7 +230,7 @@ class GitKspr(
     }
 
     private fun Commit.toRefSpec(): RefSpec = RefSpec(hash, toRemoteRefName())
-    private fun Commit.toRemoteRefName(): String = "${config.remoteBranchPrefix}$id"
+    private fun Commit.toRemoteRefName(): String = buildRemoteRef(checkNotNull(id), config.remoteBranchPrefix)
 
     companion object {
         private val HEADER = """
@@ -248,7 +246,6 @@ class GitKspr(
     }
 }
 
-const val DEFAULT_REMOTE_BRANCH_PREFIX = "kspr/"
 const val FORCE_PUSH_PREFIX = "+"
 
 /** Much like [Iterable.windowed] with `size` == `2` but includes a leading pair of `null to firstElement` */

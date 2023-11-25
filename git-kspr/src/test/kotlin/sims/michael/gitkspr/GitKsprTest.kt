@@ -8,6 +8,9 @@ import org.junit.jupiter.api.*
 import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.slf4j.LoggerFactory
 import sims.michael.gitkspr.JGitClient.Companion.HEAD
+import sims.michael.gitkspr.JGitClient.Companion.R_HEADS
+import sims.michael.gitkspr.RemoteRefEncoding.DEFAULT_REMOTE_BRANCH_PREFIX
+import sims.michael.gitkspr.RemoteRefEncoding.buildRemoteRef
 import sims.michael.gitkspr.githubtests.GitHubTestHarness.Companion.withTestSetup
 import sims.michael.gitkspr.githubtests.TestCaseData
 import sims.michael.gitkspr.githubtests.generatedtestdsl.testCase
@@ -160,9 +163,10 @@ class GitKsprTest {
             )
             gitKspr.push()
 
-            val prefix = "refs/heads/${DEFAULT_REMOTE_BRANCH_PREFIX}"
             assertEquals(
-                (1..3).associate { "$prefix$it" to it.toString() },
+                (1..3).associate {
+                    "$R_HEADS${buildRemoteRef(it.toString())}" to it.toString()
+                },
                 remoteGit.commitIdsByBranch(),
             )
         }
@@ -216,7 +220,7 @@ class GitKsprTest {
 
             assertEquals(
                 listOf("a", "a_01", "a_02", "b", "b_01", "b_02", "c", "c_01", "c_02", "y", "z")
-                    .map { name -> "${DEFAULT_REMOTE_BRANCH_PREFIX}$name" },
+                    .map { name -> buildRemoteRef(name) },
                 localGit
                     .getRemoteBranches()
                     .map(RemoteBranch::name)
@@ -294,21 +298,21 @@ class GitKsprTest {
                     repository {
                         commit {
                             title = "one"
-                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                            remoteRefs += buildRemoteRef("one")
                         }
                         commit {
                             title = "two"
                             localRefs += "development"
-                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}two"
+                            remoteRefs += buildRemoteRef("two")
                         }
                     }
                     pullRequest {
-                        headRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                        headRef = buildRemoteRef("one")
                         baseRef = "main"
                         title = "One PR"
                     }
                     pullRequest {
-                        headRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                        headRef = buildRemoteRef("one")
                         baseRef = "main"
                         title = "Two PR"
                     }
@@ -377,7 +381,7 @@ class GitKsprTest {
                     repository {
                         commit {
                             title = "one"
-                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                            remoteRefs += buildRemoteRef("one")
                         }
                         commit { title = "two" }
                         commit {
@@ -409,7 +413,7 @@ class GitKsprTest {
                     repository {
                         commit {
                             title = "one"
-                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                            remoteRefs += buildRemoteRef("one")
                         }
                         commit { title = "two" }
                         commit {
@@ -418,7 +422,7 @@ class GitKsprTest {
                         }
                     }
                     pullRequest {
-                        headRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                        headRef = buildRemoteRef("one")
                         baseRef = "main"
                         title = "one"
                     }
@@ -446,7 +450,7 @@ class GitKsprTest {
                     repository {
                         commit {
                             title = "one"
-                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                            remoteRefs += buildRemoteRef("one")
                             willPassVerification = true
                         }
                         commit { title = "two" }
@@ -456,7 +460,7 @@ class GitKsprTest {
                         }
                     }
                     pullRequest {
-                        headRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                        headRef = buildRemoteRef("one")
                         baseRef = "main"
                         title = "one"
                     }
@@ -485,34 +489,34 @@ class GitKsprTest {
                         commit {
                             title = "one"
                             willPassVerification = true
-                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                            remoteRefs += buildRemoteRef("one")
                         }
                         commit {
                             title = "two"
                             willPassVerification = true
-                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}two"
+                            remoteRefs += buildRemoteRef("two")
                         }
                         commit {
                             title = "three"
                             willPassVerification = true
-                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}three"
+                            remoteRefs += buildRemoteRef("three")
                             localRefs += "development"
                         }
                     }
                     pullRequest {
-                        headRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                        headRef = buildRemoteRef("one")
                         baseRef = "main"
                         title = "one"
                         willBeApprovedByUserKey = "michael"
                     }
                     pullRequest {
-                        headRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}two"
-                        baseRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
                         title = "two"
                     }
                     pullRequest {
-                        headRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}three"
-                        baseRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}two"
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
                         title = "three"
                     }
                 },

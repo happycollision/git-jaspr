@@ -2,6 +2,7 @@ package sims.michael.gitkspr
 
 import ch.qos.logback.classic.Level
 import kotlinx.serialization.Serializable
+import sims.michael.gitkspr.RemoteRefEncoding.DEFAULT_REMOTE_BRANCH_PREFIX
 import sims.michael.gitkspr.serde.FileSerializer
 import sims.michael.gitkspr.serde.LevelSerializer
 import java.io.File

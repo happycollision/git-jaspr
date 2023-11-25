@@ -3,6 +3,7 @@ package sims.michael.gitkspr
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInfo
 import org.slf4j.LoggerFactory
+import sims.michael.gitkspr.RemoteRefEncoding.buildRemoteRef
 import sims.michael.gitkspr.githubtests.GitHubTestHarness.Companion.withTestSetup
 import sims.michael.gitkspr.githubtests.generatedtestdsl.testCase
 import sims.michael.gitkspr.testing.FunctionalTest
@@ -137,8 +138,10 @@ class GitKsprFunctionalTest {
                 .reversed()
                 .windowedPairs()
                 .map { (prevCommit, currentCommit) ->
-                    val baseRefName = prevCommit?.let { "$remoteBranchPrefix${it.id}" } ?: DEFAULT_TARGET_REF
-                    val headRefName = "$remoteBranchPrefix${currentCommit.id}"
+                    val baseRefName = prevCommit
+                        ?.let { buildRemoteRef(checkNotNull(it.id), remoteBranchPrefix) }
+                        ?: DEFAULT_TARGET_REF
+                    val headRefName = buildRemoteRef(checkNotNull(currentCommit.id), remoteBranchPrefix)
                     baseRefName to headRefName
                 }
                 .toSet()
@@ -244,34 +247,34 @@ class GitKsprFunctionalTest {
                         commit {
                             title = "one"
                             willPassVerification = true
-                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                            remoteRefs += buildRemoteRef("one")
                         }
                         commit {
                             title = "two"
                             willPassVerification = true
-                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}two"
+                            remoteRefs += buildRemoteRef("two")
                         }
                         commit {
                             title = "three"
                             willPassVerification = true
-                            remoteRefs += "${DEFAULT_REMOTE_BRANCH_PREFIX}three"
+                            remoteRefs += buildRemoteRef("three")
                             localRefs += "development"
                         }
                     }
                     pullRequest {
-                        headRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                        headRef = buildRemoteRef("one")
                         baseRef = "main"
                         title = "one"
                     }
                     pullRequest {
-                        headRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}two"
-                        baseRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}one"
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
                         title = "two"
                         willBeApprovedByUserKey = "michael"
                     }
                     pullRequest {
-                        headRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}three"
-                        baseRef = "${DEFAULT_REMOTE_BRANCH_PREFIX}two"
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
                         title = "three"
                     }
                 },

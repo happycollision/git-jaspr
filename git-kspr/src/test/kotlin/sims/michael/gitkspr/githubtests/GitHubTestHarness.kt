@@ -11,6 +11,7 @@ import sims.michael.gitkspr.*
 import sims.michael.gitkspr.Commit
 import sims.michael.gitkspr.Ident
 import sims.michael.gitkspr.PullRequest
+import sims.michael.gitkspr.RemoteRefEncoding.DEFAULT_REMOTE_BRANCH_PREFIX
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files

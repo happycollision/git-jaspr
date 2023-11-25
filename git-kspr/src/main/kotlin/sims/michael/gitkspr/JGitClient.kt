@@ -11,6 +11,8 @@ import org.eclipse.jgit.transport.PushResult
 import org.eclipse.jgit.transport.RemoteRefUpdate.Status
 import org.slf4j.LoggerFactory
 import sims.michael.gitkspr.JGitClient.CheckoutMode.*
+import sims.michael.gitkspr.RemoteRefEncoding.DEFAULT_REMOTE_BRANCH_PREFIX
+import sims.michael.gitkspr.RemoteRefEncoding.getCommitIdFromRemoteRef
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
@@ -110,7 +112,12 @@ class JGitClient(val workingDirectory: File, val remoteBranchPrefix: String = DE
     }
 
     fun getRemoteBranchesById(): Map<String, RemoteBranch> =
-        getRemoteBranches().associateBy { branch -> branch.name.removePrefix(remoteBranchPrefix) }
+        getRemoteBranches()
+            .mapNotNull { branch ->
+                val commitId = getCommitIdFromRemoteRef(branch.name, remoteBranchPrefix)
+                if (commitId != null) commitId to branch else null
+            }
+            .toMap()
 
     fun fetch(remoteName: String) {
         logger.trace("fetch {}", remoteName)

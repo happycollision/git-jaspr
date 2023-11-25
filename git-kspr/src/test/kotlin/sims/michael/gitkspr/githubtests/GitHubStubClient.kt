@@ -4,6 +4,7 @@ import org.slf4j.LoggerFactory
 import sims.michael.gitkspr.*
 import sims.michael.gitkspr.Commit
 import sims.michael.gitkspr.PullRequest
+import sims.michael.gitkspr.RemoteRefEncoding.getCommitIdFromRemoteRef
 
 class GitHubStubClient(private val remoteBranchPrefix: String) : GitHubClient {
 
@@ -24,8 +25,7 @@ class GitHubStubClient(private val remoteBranchPrefix: String) : GitHubClient {
     }
 
     override suspend fun createPullRequest(pullRequest: PullRequest): PullRequest {
-        val regex = "^$remoteBranchPrefix(.*?)$".toRegex()
-        val commitId = regex.matchEntire(pullRequest.headRefName)?.let { result -> result.groupValues[1] }
+        val commitId = getCommitIdFromRemoteRef(pullRequest.headRefName, remoteBranchPrefix)
         return pullRequest
             .copy(
                 // Assign a unique id and the next PR number... simulates what GitHub would do
