@@ -339,7 +339,9 @@ class GitKsprTest {
                 },
             )
             gitKspr.push()
-            val remoteCommitStatuses = gitKspr.getRemoteCommitStatuses()
+            localGit.fetch(DEFAULT_REMOTE_NAME)
+            val stack = localGit.getLocalCommitStack(DEFAULT_REMOTE_NAME, DEFAULT_LOCAL_OBJECT, DEFAULT_TARGET_REF)
+            val remoteCommitStatuses = gitKspr.getRemoteCommitStatuses(stack)
             assertEquals(localGit.log("HEAD", maxCount = 1).single(), remoteCommitStatuses.single().remoteCommit)
         }
     }
@@ -362,9 +364,9 @@ class GitKsprTest {
 
             assertEquals(
                 """
-                    |[- - - - - -] one
-                    |[- - - - - -] two
-                    |[- - - - - -] three
+                    |[- - - - -] one
+                    |[- - - - -] two
+                    |[- - - - -] three
                 """
                     .trimMargin()
                     .toStatusString(),
@@ -394,9 +396,9 @@ class GitKsprTest {
 
             assertEquals(
                 """
-                    |[+ - - - - -] one
-                    |[- - - - - -] two
-                    |[- - - - - -] three
+                    |[+ - - - -] one
+                    |[- - - - -] two
+                    |[- - - - -] three
                 """
                     .trimMargin()
                     .toStatusString(),
@@ -431,9 +433,9 @@ class GitKsprTest {
 
             assertEquals(
                 """
-                    |[+ + ? - - -] one
-                    |[- - - - - -] two
-                    |[- - - - - -] three
+                    |[+ + ? - -] one
+                    |[- - - - -] two
+                    |[- - - - -] three
                 """
                     .trimMargin()
                     .toStatusString(),
@@ -469,9 +471,9 @@ class GitKsprTest {
 
             assertEquals(
                 """
-                    |[+ + + - - -] one
-                    |[- - - - - -] two
-                    |[- - - - - -] three
+                    |[+ + + - -] one
+                    |[- - - - -] two
+                    |[- - - - -] three
                 """
                     .trimMargin()
                     .toStatusString(),
@@ -524,9 +526,150 @@ class GitKsprTest {
 
             assertEquals(
                 """
-                    |[+ + + + - -] one
-                    |[+ + + - - -] two
-                    |[+ + + - - -] three
+                    |[+ + + + -] one
+                    |[+ + + - -] two
+                    |[+ + + - -] three
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                gitKspr.getAndPrintStatusString(),
+            )
+        }
+    }
+
+    @Test
+    fun `local stack is one commit behind base branch`() {
+        withTestSetup {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "in_both_main_and_development"
+                            branch {
+                                commit {
+                                    title = "only_on_main"
+                                    remoteRefs += "main"
+                                }
+                            }
+                        }
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("one")
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("two")
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("three")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
+                        title = "two"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                },
+            )
+
+            assertEquals(
+                """
+                    |[+ + + + -] one
+                    |[+ + + + -] two
+                    |[+ + + + -] three
+                    |
+                    |Your stack is out-of-date with the base branch (1 commit behind main).
+                    |You'll need to rebase it (`git rebase origin/main`) before your stack will be mergeable.
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                gitKspr.getAndPrintStatusString(),
+            )
+        }
+    }
+
+    @Test
+    fun `local stack is two commits behind base branch`() {
+        withTestSetup {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "in_both_main_and_development"
+                            branch {
+                                commit {
+                                    title = "only_on_main_one"
+                                }
+                                commit {
+                                    title = "only_on_main_two"
+                                    remoteRefs += "main"
+                                }
+                            }
+                        }
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("one")
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("two")
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("three")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
+                        title = "two"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                },
+            )
+
+            assertEquals(
+                """
+                    |[+ + + + -] one
+                    |[+ + + + -] two
+                    |[+ + + + -] three
+                    |
+                    |Your stack is out-of-date with the base branch (2 commits behind main).
+                    |You'll need to rebase it (`git rebase origin/main`) before your stack will be mergeable.
                 """
                     .trimMargin()
                     .toStatusString(),
@@ -559,9 +702,8 @@ fun String.toStatusString() =
             | │ ┌─ pull request exists
             | │ │ ┌─ github checks pass
             | │ │ │ ┌── pull request approved
-            | │ │ │ │ ┌─── no merge conflicts
-            | │ │ │ │ │ ┌──── stack check
-            | │ │ │ │ │ │
+            | │ │ │ │ ┌─── stack check
+            | │ │ │ │ │
             |$this
 
     """.trimMargin()

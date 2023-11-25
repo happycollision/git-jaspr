@@ -70,14 +70,8 @@ class GitKspr(
         }
     }
 
-    suspend fun getRemoteCommitStatuses(
-        refSpec: RefSpec = RefSpec(DEFAULT_LOCAL_OBJECT, DEFAULT_TARGET_REF),
-    ): List<RemoteCommitStatus> {
-        val remoteName = config.remoteName
-        gitClient.fetch(remoteName)
-
+    suspend fun getRemoteCommitStatuses(stack: List<Commit>): List<RemoteCommitStatus> {
         val remoteBranchesById = gitClient.getRemoteBranchesById()
-        val stack = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
         val prsById = if (stack.isNotEmpty()) {
             ghClient.getPullRequests(stack.filter { commit -> commit.id != null }).associateBy(PullRequest::commitId)
         } else {
@@ -95,6 +89,7 @@ class GitKspr(
             }
     }
 
+    // TODO consider pulling the target ref from the branch name instead of requiring it on the command line
     suspend fun getStatusString(refSpec: RefSpec = RefSpec(DEFAULT_LOCAL_OBJECT, DEFAULT_TARGET_REF)): String {
         data class StatusBits(
             val commitIsPushed: Boolean = false,
@@ -102,12 +97,16 @@ class GitKspr(
             val checksPass: Boolean? = null,
             val approved: Boolean? = null,
         ) {
-            fun toList(): List<Boolean?> = listOf(commitIsPushed, pullRequestExists, checksPass, approved, false, false)
+            fun toList(): List<Boolean?> = listOf(commitIsPushed, pullRequestExists, checksPass, approved, false)
         }
 
         fun Boolean?.toIndicator() = if (this == true) "+" else if (this == null) "?" else "-"
 
-        val statuses = getRemoteCommitStatuses(refSpec)
+        val remoteName = config.remoteName
+        gitClient.fetch(remoteName)
+
+        val stack = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
+        val statuses = getRemoteCommitStatuses(stack)
         return buildString {
             append(HEADER)
             for (status in statuses) {
@@ -121,6 +120,15 @@ class GitKspr(
                 append(statusBits.toList().joinToString(separator = " ", transform = Boolean?::toIndicator))
                 append("] ")
                 appendLine(status.localCommit.shortMessage)
+            }
+            val numCommitsBehind = gitClient.logRange(stack.last().hash, "$remoteName/${refSpec.remoteRef}").size
+            if (numCommitsBehind > 0) {
+                appendLine()
+                append("Your stack is out-of-date with the base branch ")
+                val commits = if (numCommitsBehind > 1) "commits" else "commit"
+                appendLine("($numCommitsBehind $commits behind ${refSpec.remoteRef}).")
+                append("You'll need to rebase it (`git rebase $remoteName/${refSpec.remoteRef}`) ")
+                appendLine("before your stack will be mergeable.")
             }
         }
     }
@@ -238,9 +246,8 @@ class GitKspr(
             | │ ┌─ pull request exists
             | │ │ ┌─ github checks pass
             | │ │ │ ┌── pull request approved
-            | │ │ │ │ ┌─── no merge conflicts
-            | │ │ │ │ │ ┌──── stack check
-            | │ │ │ │ │ │
+            | │ │ │ │ ┌─── stack check
+            | │ │ │ │ │
 
         """.trimMargin()
     }
