@@ -80,6 +80,12 @@ class GitHubTestHarness private constructor(
         val commitHashesByTitle = localGit.logAll().associate { commit -> commit.shortMessage to commit.hash }
 
         val initialCommit = localGit.log(DEFAULT_TARGET_REF).last()
+
+        // TODO This saves the state of `main` so it will be restored even if moved by an "external" process
+        //   This is for functional tests so I can roll them back when done. I need a better comment here.
+        val initialRestoreMarker = "$RESTORE_PREFIX$DEFAULT_TARGET_REF"
+        localGit.branch(initialRestoreMarker, startPoint = initialCommit.hash)
+
         localGit.checkout(initialCommit.hash) // Go into detached HEAD
 
         // Inner recursive function, called below

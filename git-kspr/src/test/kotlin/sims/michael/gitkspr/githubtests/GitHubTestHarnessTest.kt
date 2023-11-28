@@ -4,9 +4,9 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInfo
 import org.junit.jupiter.api.assertThrows
 import org.slf4j.LoggerFactory
-import sims.michael.gitkspr.DEFAULT_REMOTE_NAME
-import sims.michael.gitkspr.JGitClient
+import sims.michael.gitkspr.*
 import sims.michael.gitkspr.PullRequest
+import sims.michael.gitkspr.RemoteRefEncoding.buildRemoteRef
 import sims.michael.gitkspr.githubtests.GitHubTestHarness.Companion.withTestSetup
 import sims.michael.gitkspr.githubtests.generatedtestdsl.testCase
 import kotlin.test.assertEquals
@@ -370,6 +370,61 @@ class GitHubTestHarnessTest {
                     }
                 },
             )
+        }
+        val jGitClient = JGitClient(harness.remoteRepo)
+
+        assertEquals(listOf("main"), jGitClient.getBranchNames())
+        assertEquals(
+            GitHubTestHarness.INITIAL_COMMIT_SHORT_MESSAGE,
+            jGitClient.log("main", maxCount = 1).single().shortMessage,
+        )
+    }
+
+    @Test
+    fun `rollbackRemoteChanges rolls back main branch even if moved externally`() {
+        val harness = withTestSetup {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("one")
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("two")
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("three")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
+                        title = "two"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                },
+            )
+
+            gitKspr.merge(RefSpec("development", "main"))
         }
         val jGitClient = JGitClient(harness.remoteRepo)
 
