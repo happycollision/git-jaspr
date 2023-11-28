@@ -39,6 +39,10 @@ class GitHubStubClient(private val remoteBranchPrefix: String) : GitHubClient {
             }
     }
 
+    override suspend fun closePullRequest(pullRequest: PullRequest) {
+        prs.remove(pullRequest)
+    }
+
     override suspend fun approvePullRequest(pullRequest: PullRequest) {
         // No op
     }

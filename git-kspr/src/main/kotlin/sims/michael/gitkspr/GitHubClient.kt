@@ -10,6 +10,7 @@ import sims.michael.gitkspr.generated.enums.PullRequestReviewDecision
 import sims.michael.gitkspr.generated.enums.PullRequestReviewEvent
 import sims.michael.gitkspr.generated.enums.StatusState
 import sims.michael.gitkspr.generated.inputs.AddPullRequestReviewInput
+import sims.michael.gitkspr.generated.inputs.ClosePullRequestInput
 import sims.michael.gitkspr.generated.inputs.CreatePullRequestInput
 import sims.michael.gitkspr.generated.inputs.UpdatePullRequestInput
 import java.util.concurrent.atomic.AtomicReference
@@ -19,6 +20,7 @@ interface GitHubClient {
     suspend fun getPullRequestsById(commitFilter: List<String>? = null): List<PullRequest>
     suspend fun createPullRequest(pullRequest: PullRequest): PullRequest
     suspend fun updatePullRequest(pullRequest: PullRequest)
+    suspend fun closePullRequest(pullRequest: PullRequest)
     suspend fun approvePullRequest(pullRequest: PullRequest)
 }
 
@@ -136,6 +138,24 @@ class GitHubClientImpl(
             )
             .also { response ->
                 response.checkNoErrors { logger.error("Error updating PR #{}", pullRequest.number) }
+            }
+    }
+
+    override suspend fun closePullRequest(pullRequest: PullRequest) {
+        logger.trace("closePullRequest {}", pullRequest)
+        checkNotNull(pullRequest.id) { "Cannot close $pullRequest without an ID" }
+        delegate
+            .execute(
+                ClosePullRequest(
+                    ClosePullRequest.Variables(
+                        ClosePullRequestInput(
+                            pullRequestId = pullRequest.id,
+                        ),
+                    ),
+                ),
+            )
+            .also { response ->
+                response.checkNoErrors { logger.error("Error closing PR #{}", pullRequest.number) }
             }
     }
 

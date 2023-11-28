@@ -1,0 +1,7 @@
+mutation closePullRequest($input: ClosePullRequestInput!) {
+    closePullRequest(input: $input) {
+        pullRequest {
+            id
+        }
+    }
+}
