@@ -8,7 +8,7 @@ mutation createPullRequest($input: CreatePullRequestInput!) {
             baseRefName
             headRefName
             reviewDecision
-            commits(first:100) {
+            commits(first:25) {
                 nodes {
                     commit {
                         oid

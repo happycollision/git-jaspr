@@ -12,7 +12,7 @@ query getPullRequests(
     }
     repository(owner:$repo_owner, name:$repo_name) {
         id
-        pullRequests(first:100, states:[OPEN]) {
+        pullRequests(first:60, states:[OPEN]) {
             nodes {
                 id
                 number
@@ -28,7 +28,7 @@ query getPullRequests(
                 mergeQueueEntry {
                     id
                 }
-                commits(first:100) {
+                commits(first:25) {
                     nodes {
                         commit {
                             oid
