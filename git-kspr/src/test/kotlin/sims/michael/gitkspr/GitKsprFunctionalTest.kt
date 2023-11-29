@@ -182,9 +182,9 @@ class GitKsprFunctionalTest {
 
             assertEquals(
                 """
-                    |[+ + + - - -] A
-                    |[+ + + - - -] B
-                    |[+ + + - - -] C
+                    |[+ + + - -] A
+                    |[+ + + - -] B
+                    |[+ + + - -] C
                 """
                     .trimMargin()
                     .toStatusString(),
@@ -227,9 +227,9 @@ class GitKsprFunctionalTest {
 
             assertEquals(
                 """
-                    |[+ + + - - -] A
-                    |[+ + - - - -] B
-                    |[+ + + - - -] C
+                    |[+ + + - -] A
+                    |[+ + - - -] B
+                    |[+ + + - -] C
                 """
                     .trimMargin()
                     .toStatusString(),
@@ -293,9 +293,9 @@ class GitKsprFunctionalTest {
 
             assertEquals(
                 """
-                    |[+ + + - - -] one
-                    |[+ + + + - -] two
-                    |[+ + + - - -] three
+                    |[+ + + - -] one
+                    |[+ + + + -] two
+                    |[+ + + - -] three
                 """
                     .trimMargin()
                     .toStatusString(),
