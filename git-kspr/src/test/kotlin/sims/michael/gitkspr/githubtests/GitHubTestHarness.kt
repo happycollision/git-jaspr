@@ -84,7 +84,9 @@ class GitHubTestHarness private constructor(
         // TODO This saves the state of `main` so it will be restored even if moved by an "external" process
         //   This is for functional tests so I can roll them back when done. I need a better comment here.
         val initialRestoreMarker = "$RESTORE_PREFIX$DEFAULT_TARGET_REF"
-        localGit.branch(initialRestoreMarker, startPoint = initialCommit.hash)
+        if (!localGit.getBranchNames().contains(initialRestoreMarker)) {
+            localGit.branch(initialRestoreMarker, startPoint = initialCommit.hash)
+        }
 
         localGit.checkout(initialCommit.hash) // Go into detached HEAD
 
