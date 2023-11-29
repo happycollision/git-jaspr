@@ -1,9 +1,11 @@
 package sims.michael.gitkspr
 
+import kotlinx.coroutines.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInfo
 import org.slf4j.LoggerFactory
 import sims.michael.gitkspr.RemoteRefEncoding.buildRemoteRef
+import sims.michael.gitkspr.githubtests.GitHubTestHarness
 import sims.michael.gitkspr.githubtests.GitHubTestHarness.Companion.withTestSetup
 import sims.michael.gitkspr.githubtests.generatedtestdsl.testCase
 import sims.michael.gitkspr.testing.FunctionalTest
@@ -172,12 +174,7 @@ class GitKsprFunctionalTest {
             System.setProperty(WORKING_DIR_PROPERTY_NAME, localRepo.absolutePath)
             gitKspr.push()
 
-            // RUN WITH DEBUGGER AND PAUSE HERE UNTIL GH ACTIONS FINISH
-            //
-            // TODO
-            //   The logic to wait for the final status without some sort of callback from the GitHub API is very
-            //   tricky, so I'm punting on it for now. Use the debugger and a good old breakpoint on the following line.
-            //   Once hit, monitor the GitHub UI and resume once all of the GH actions are finished.
+            waitForChecksToConclude("A", "B", "C")
             val status = gitKspr.getStatusString()
 
             assertEquals(
@@ -217,12 +214,7 @@ class GitKsprFunctionalTest {
             System.setProperty(WORKING_DIR_PROPERTY_NAME, localRepo.absolutePath)
             gitKspr.push()
 
-            // RUN WITH DEBUGGER AND PAUSE HERE UNTIL GH ACTIONS FINISH
-            //
-            // TODO
-            //   The logic to wait for the final status without some sort of callback from the GitHub API is very
-            //   tricky, so I'm punting on it for now. Use the debugger and a good old breakpoint on the following line.
-            //   Once hit, monitor the GitHub UI and resume once all of the GH actions are finished.
+            waitForChecksToConclude("A", "B", "C")
             val status = gitKspr.getStatusString()
 
             assertEquals(
@@ -283,12 +275,7 @@ class GitKsprFunctionalTest {
             System.setProperty(WORKING_DIR_PROPERTY_NAME, localRepo.absolutePath)
             gitKspr.push()
 
-            // RUN WITH DEBUGGER AND PAUSE HERE UNTIL GH ACTIONS FINISH
-            //
-            // TODO
-            //   The logic to wait for the final status without some sort of callback from the GitHub API is very
-            //   tricky, so I'm punting on it for now. Use the debugger and a good old breakpoint on the following line.
-            //   Once hit, monitor the GitHub UI and resume once all of the GH actions are finished.
+            waitForChecksToConclude("one", "two", "three")
             val status = gitKspr.getStatusString()
 
             assertEquals(
@@ -301,6 +288,24 @@ class GitKsprFunctionalTest {
                     .toStatusString(),
                 status,
             )
+        }
+    }
+
+    private suspend fun GitHubTestHarness.waitForChecksToConclude(
+        vararg commitFilter: String,
+        timeout: Long = 30_000,
+        pollingDelay: Long = 5_000, // Lowering this value too much will result in exhausting rate limits
+    ) {
+        withTimeout(timeout) {
+            launch {
+                while (true) {
+                    val prs = gitHub.getPullRequestsById(commitFilter.toList())
+                    val conclusionStates = prs.flatMap(PullRequest::checkConclusionStates)
+                    logger.trace("Conclusion states: {}", conclusionStates)
+                    if (conclusionStates.size == commitFilter.size) break
+                    delay(pollingDelay)
+                }
+            }
         }
     }
 }

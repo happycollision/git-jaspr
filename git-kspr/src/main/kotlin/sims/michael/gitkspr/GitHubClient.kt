@@ -14,6 +14,7 @@ import sims.michael.gitkspr.generated.inputs.ClosePullRequestInput
 import sims.michael.gitkspr.generated.inputs.CreatePullRequestInput
 import sims.michael.gitkspr.generated.inputs.UpdatePullRequestInput
 import java.util.concurrent.atomic.AtomicReference
+import sims.michael.gitkspr.generated.getpullrequests.PullRequest as GraphQlPullRequest
 
 interface GitHubClient {
     suspend fun getPullRequests(commitFilter: List<Commit>? = null): List<PullRequest>
@@ -68,6 +69,7 @@ class GitHubClientImpl(
                         pr.body,
                         pr.commits.nodes?.singleOrNull()?.commit?.statusCheckRollup?.state == StatusState.SUCCESS,
                         pr.reviewDecision == PullRequestReviewDecision.APPROVED,
+                        pr.conclusionStates,
                     )
                 } else {
                     null
@@ -214,4 +216,19 @@ class GitHubClientImpl(
             debug("Rate limit info {}", gitHubRateLimitInfo)
         }
     }
+
+    private val GraphQlPullRequest.conclusionStates: List<String>
+        get() = commits
+            .nodes
+            .orEmpty()
+            .filterNotNull()
+            .flatMap { prCommit ->
+                prCommit
+                    .commit
+                    .checkSuites
+                    ?.nodes
+                    .orEmpty()
+                    .filterNotNull()
+                    .mapNotNull { checkSuite -> checkSuite.conclusion?.toString() }
+            }
 }

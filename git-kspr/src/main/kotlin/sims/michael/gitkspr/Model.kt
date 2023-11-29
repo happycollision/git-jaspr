@@ -72,6 +72,7 @@ data class PullRequest(
     val body: String,
     val checksPass: Boolean? = null,
     val approved: Boolean? = null,
+    val checkConclusionStates: List<String> = emptyList(),
     // TODO add state?
     // TODO add draft?
     // TODO add commits
