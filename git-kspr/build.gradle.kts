@@ -8,7 +8,25 @@ plugins {
     alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.graphql)
     alias(libs.plugins.spotless)
+    alias(libs.plugins.graalvm)
     application
+}
+
+graalvmNative {
+    binaries {
+        all {
+            resources.autodetect()
+        }
+        named("main") {
+            javaLauncher.set(
+                javaToolchains.launcherFor {
+                    languageVersion.set(JavaLanguageVersion.of(21))
+                    vendor.set(JvmVendorSpec.matching("GraalVM"))
+                },
+            )
+        }
+    }
+    toolchainDetection.set(true)
 }
 
 graphql {

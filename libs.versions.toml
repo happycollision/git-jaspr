@@ -8,6 +8,7 @@ kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 graphql = { id = "com.expediagroup.graphql", version = "6.4.1" }
 spotless = { id = "com.diffplug.spotless", version = "6.21.0" }
+graalvm = { id = "org.graalvm.buildtools.native", version = "0.9.12" }
 
 [libraries]
 auto-service = { module = "com.google.auto.service:auto-service", version = "1.0.1" }
