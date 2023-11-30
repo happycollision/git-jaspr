@@ -141,9 +141,11 @@ class GitKsprFunctionalTest {
                 .windowedPairs()
                 .map { (prevCommit, currentCommit) ->
                     val baseRefName = prevCommit
-                        ?.let { buildRemoteRef(checkNotNull(it.id), remoteBranchPrefix) }
+                        ?.let {
+                            buildRemoteRef(checkNotNull(it.id), DEFAULT_TARGET_REF)
+                        }
                         ?: DEFAULT_TARGET_REF
-                    val headRefName = buildRemoteRef(checkNotNull(currentCommit.id), remoteBranchPrefix)
+                    val headRefName = buildRemoteRef(checkNotNull(currentCommit.id), DEFAULT_TARGET_REF)
                     baseRefName to headRefName
                 }
                 .toSet()
