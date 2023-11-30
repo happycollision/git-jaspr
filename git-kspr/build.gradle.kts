@@ -32,11 +32,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(project(":data-class-fragment"))
 
-    annotationProcessor(libs.auto.service)
-    implementation(libs.auto.service)
-    kapt(libs.auto.service)
-
-    kaptTest(project(":data-class-fragment"))
+    testImplementation(project(":github-dsl-model"))
     testImplementation(libs.kotlin.test.junit5)
     testImplementation(libs.junit.jupiter.engine)
     testImplementation(libs.jgit.junit)

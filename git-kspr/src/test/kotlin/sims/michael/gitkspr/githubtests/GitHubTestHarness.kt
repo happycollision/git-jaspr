@@ -287,8 +287,9 @@ class GitHubTestHarness private constructor(
         val file = localRepo.resolve("${title.sanitize()}.txt")
         file.writeText("Title: $title\n")
         // Use the title as the commit ID if ID wasn't provided
-        val commitId = if (id != null) {
-            id
+        val safeId = id
+        val commitId = if (safeId != null) {
+            safeId
         } else {
             require(!title.contains("\\s+".toRegex())) {
                 "ID wasn't provided and title '$title' can\'t be used as it contains whitespace."
@@ -296,12 +297,13 @@ class GitHubTestHarness private constructor(
             title
         }
         val message = localGit.appendCommitId(title, commitId)
+        val safeWillPassVerification = willPassVerification
         return localGit
             .add(file.name)
             .commit(
                 message,
-                if (willPassVerification != null) {
-                    mapOf("verify-result" to if (willPassVerification) "0" else "13")
+                if (safeWillPassVerification != null) {
+                    mapOf("verify-result" to if (safeWillPassVerification) "0" else "13")
                 } else {
                     emptyMap()
                 },
