@@ -11,6 +11,7 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import sims.michael.gitkspr.generated.getpullrequests.RateLimit as GetPullRequestsRateLimit
+import sims.michael.gitkspr.generated.getpullrequestsbyheadref.RateLimit as GetPullRequestsByHeadRefRateLimit
 import sims.michael.gitkspr.generated.getrepositoryid.RateLimit as GetRepositoryIdRateLimit
 
 @Serializable
@@ -95,6 +96,9 @@ data class GitHubRateLimitInfo(
 )
 
 fun GetPullRequestsRateLimit.toCanonicalRateLimitInfo(): GitHubRateLimitInfo =
+    GitHubRateLimitInfo(cost, used, limit, remaining, nodeCount, resetAt.iso8601ToLocalDate())
+
+fun GetPullRequestsByHeadRefRateLimit.toCanonicalRateLimitInfo(): GitHubRateLimitInfo =
     GitHubRateLimitInfo(cost, used, limit, remaining, nodeCount, resetAt.iso8601ToLocalDate())
 
 fun GetRepositoryIdRateLimit.toCanonicalRateLimitInfo(): GitHubRateLimitInfo =

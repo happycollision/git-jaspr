@@ -48,7 +48,10 @@ class GitHubTestHarness private constructor(
             // grab the first.
             ghClientsByUserKey.values.first()
         } else {
-            GitHubStubClient(remoteBranchPrefix)
+            GitHubStubClient(
+                remoteBranchPrefix,
+                localGit,
+            )
         }
     }
 

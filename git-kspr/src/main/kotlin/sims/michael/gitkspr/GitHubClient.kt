@@ -14,11 +14,13 @@ import sims.michael.gitkspr.generated.inputs.ClosePullRequestInput
 import sims.michael.gitkspr.generated.inputs.CreatePullRequestInput
 import sims.michael.gitkspr.generated.inputs.UpdatePullRequestInput
 import java.util.concurrent.atomic.AtomicReference
-import sims.michael.gitkspr.generated.getpullrequests.PullRequest as GraphQlPullRequest
+import sims.michael.gitkspr.generated.getpullrequests.PullRequest as GetPullRequestsPullRequest
+import sims.michael.gitkspr.generated.getpullrequestsbyheadref.PullRequest as GetPullRequestsByHeadRefPullRequest
 
 interface GitHubClient {
     suspend fun getPullRequests(commitFilter: List<Commit>? = null): List<PullRequest>
     suspend fun getPullRequestsById(commitFilter: List<String>? = null): List<PullRequest>
+    suspend fun getPullRequestsByHeadRef(headRefName: String): List<PullRequest>
     suspend fun createPullRequest(pullRequest: PullRequest): PullRequest
     suspend fun updatePullRequest(pullRequest: PullRequest)
     suspend fun closePullRequest(pullRequest: PullRequest)
@@ -74,6 +76,43 @@ class GitHubClientImpl(
                 } else {
                     null
                 }
+            }
+            .also { pullRequests -> logger.trace("getPullRequests {}: {}", pullRequests.size, pullRequests) }
+    }
+
+    override suspend fun getPullRequestsByHeadRef(headRefName: String): List<PullRequest> {
+        val response = delegate.execute(
+            GetPullRequestsByHeadRef(
+                GetPullRequestsByHeadRef.Variables(
+                    gitHubInfo.owner,
+                    gitHubInfo.name,
+                    headRefName,
+                ),
+            ),
+        ).data
+        logger.logRateLimitInfo(response?.rateLimit?.toCanonicalRateLimitInfo())
+        return response
+            ?.repository
+            ?.pullRequests
+            ?.nodes
+            .orEmpty()
+            .filterNotNull()
+            .map { pr ->
+                // TODO looks like duplication but isn't, strictly. Still, this could be cleaned up by creating a facade
+                //   wrapper interface
+                val commitId = getCommitIdFromRemoteRef(pr.headRefName, remoteBranchPrefix)
+                PullRequest(
+                    pr.id,
+                    commitId,
+                    pr.number,
+                    pr.headRefName,
+                    pr.baseRefName,
+                    pr.title,
+                    pr.body,
+                    pr.commits.nodes?.singleOrNull()?.commit?.statusCheckRollup?.state == StatusState.SUCCESS,
+                    pr.reviewDecision == PullRequestReviewDecision.APPROVED,
+                    pr.conclusionStates,
+                )
             }
             .also { pullRequests -> logger.trace("getPullRequests {}: {}", pullRequests.size, pullRequests) }
     }
@@ -217,7 +256,22 @@ class GitHubClientImpl(
         }
     }
 
-    private val GraphQlPullRequest.conclusionStates: List<String>
+    private val GetPullRequestsPullRequest.conclusionStates: List<String>
+        get() = commits
+            .nodes
+            .orEmpty()
+            .filterNotNull()
+            .flatMap { prCommit ->
+                prCommit
+                    .commit
+                    .checkSuites
+                    ?.nodes
+                    .orEmpty()
+                    .filterNotNull()
+                    .mapNotNull { checkSuite -> checkSuite.conclusion?.toString() }
+            }
+
+    private val GetPullRequestsByHeadRefPullRequest.conclusionStates: List<String>
         get() = commits
             .nodes
             .orEmpty()

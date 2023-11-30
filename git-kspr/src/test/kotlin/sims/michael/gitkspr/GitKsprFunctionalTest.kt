@@ -291,6 +291,345 @@ class GitKsprFunctionalTest {
         }
     }
 
+    @Test
+    fun `all mergeable`() {
+        withTestSetup(useFakeRemote = false, rollBackChanges = true) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("one")
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("two")
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("three")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
+                        title = "two"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                },
+            )
+
+            System.setProperty(WORKING_DIR_PROPERTY_NAME, localRepo.absolutePath)
+            gitKspr.push()
+
+            waitForChecksToConclude("one", "two", "three")
+            val status = gitKspr.getStatusString()
+
+            assertEquals(
+                """
+                    |[+ + + + +] one
+                    |[+ + + + +] two
+                    |[+ + + + +] three
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                status,
+            )
+        }
+    }
+
+    @Test
+    fun `merge happy path`() {
+        withTestSetup(useFakeRemote = false, rollBackChanges = true) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("one")
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("two")
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("three")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
+                        title = "two"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                },
+            )
+
+            waitForChecksToConclude("one", "two", "three")
+            gitKspr.merge(RefSpec("development", "main"))
+
+            assertEquals(
+                emptyList(),
+                localGit.getLocalCommitStack(DEFAULT_REMOTE_NAME, "development", DEFAULT_TARGET_REF),
+            )
+        }
+    }
+
+    @Test
+    fun `merge pushes latest commit that passes the stack check`() {
+        withTestSetup(useFakeRemote = false) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("one")
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("two")
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("three")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
+                        title = "two"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                    }
+                },
+            )
+
+            waitForChecksToConclude("one", "two", "three")
+            gitKspr.merge(RefSpec("development", "main"))
+
+            assertEquals(
+                listOf("three"), // All mergeable commits were merged, leaving "three" as the only one not merged
+                localGit
+                    .getLocalCommitStack(DEFAULT_REMOTE_NAME, "development", DEFAULT_TARGET_REF)
+                    .map(Commit::shortMessage),
+            )
+        }
+    }
+
+    @Test
+    fun `merge sets baseRef to targetRef on the latest PR that is mergeable`() {
+        withTestSetup(useFakeRemote = false) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("one")
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("two")
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("three")
+                        }
+                        commit {
+                            title = "four"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("four")
+                        }
+                        commit {
+                            title = "five"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("five")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
+                        title = "two"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("four")
+                        baseRef = buildRemoteRef("three")
+                        title = "four"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("five")
+                        baseRef = buildRemoteRef("four")
+                        title = "five"
+                    }
+                },
+            )
+
+            waitForChecksToConclude("one", "two", "three", "four", "five")
+
+            gitKspr.merge(RefSpec("development", "main"))
+            assertEquals(
+                DEFAULT_TARGET_REF,
+                gitHub.getPullRequestsByHeadRef(buildRemoteRef("four")).last().baseRefName,
+            )
+        }
+    }
+
+    @Test
+    fun `merge closes PRs that were rolled up into the PR for the latest mergeable commit`() {
+        withTestSetup(useFakeRemote = false, rollBackChanges = true) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("one")
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("two")
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("three")
+                        }
+                        commit {
+                            title = "four"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("four")
+                        }
+                        commit {
+                            title = "five"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("five")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
+                        title = "two"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("four")
+                        baseRef = buildRemoteRef("three")
+                        title = "four"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("five")
+                        baseRef = buildRemoteRef("four")
+                        title = "five"
+                    }
+                },
+            )
+
+            waitForChecksToConclude("one", "two", "three", "four", "five")
+
+            gitKspr.merge(RefSpec("development", "main"))
+            assertEventuallyEquals(
+                listOf("five"),
+                getActual = { gitHub.getPullRequests().map(PullRequest::title) },
+            )
+        }
+    }
+
+    private suspend fun <T> assertEventuallyEquals(expected: T, getActual: suspend () -> T) {
+        assertEquals(
+            expected,
+            withTimeout(30_000L) {
+                async {
+                    var actual: T = getActual()
+                    while (actual != expected) {
+                        logger.trace("Actual {}", actual)
+                        delay(5_000L)
+                        actual = getActual()
+                    }
+                    actual
+                }
+            }.await(),
+        )
+    }
+
     private suspend fun GitHubTestHarness.waitForChecksToConclude(
         vararg commitFilter: String,
         timeout: Long = 30_000,

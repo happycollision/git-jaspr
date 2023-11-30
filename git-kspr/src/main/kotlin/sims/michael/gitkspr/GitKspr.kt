@@ -136,6 +136,45 @@ class GitKspr(
         }
     }
 
+    suspend fun merge(refSpec: RefSpec) {
+        val remoteName = config.remoteName
+        gitClient.fetch(remoteName)
+
+        val numCommitsBehind = gitClient.logRange(refSpec.localRef, "$remoteName/${refSpec.remoteRef}").size
+        if (numCommitsBehind > 0) {
+            val commits = if (numCommitsBehind > 1) "commits" else "commit"
+            logger.warn(
+                "Cannot merge because your stack is out-of-date with the base branch ({} {} behind {}).",
+                numCommitsBehind,
+                commits,
+                refSpec.remoteRef,
+            )
+            return
+        }
+
+        val stack = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
+
+        val statuses = getRemoteCommitStatuses(stack)
+
+        val indexLastMergeable = statuses.indexOfLast { it.approved == true && it.checksPass == true }
+        if (indexLastMergeable == -1) {
+            logger.warn("No commits in your local stack are mergeable.")
+            return
+        }
+        val lastMergeableStatus = statuses[indexLastMergeable]
+        val lastPr = checkNotNull(lastMergeableStatus.pullRequest)
+        if (lastPr.baseRefName != refSpec.remoteRef) {
+            ghClient.updatePullRequest(lastPr.copy(baseRefName = refSpec.remoteRef))
+        }
+
+        gitClient.push(listOf(RefSpec(lastMergeableStatus.localCommit.hash, refSpec.remoteRef)))
+
+        val prsToClose = statuses.slice(0 until indexLastMergeable).mapNotNull(RemoteCommitStatus::pullRequest)
+        for (pr in prsToClose) {
+            ghClient.closePullRequest(pr)
+        }
+    }
+
     class SinglePullRequestPerCommitConstraintViolation(override val message: String) : RuntimeException(message)
 
     private fun checkSinglePullRequestPerCommit(pullRequests: List<PullRequest>): List<PullRequest> {

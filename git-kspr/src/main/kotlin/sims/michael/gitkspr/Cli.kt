@@ -99,7 +99,21 @@ class Status : GitKsprCommand() { // Common options/arguments are inherited from
 
 // git kspr merge [remote-name] [local-object]
 class Merge : GitKsprCommand() { // Common options/arguments are inherited from the superclass
-    override suspend fun doRun() = TODO("Merge")
+    private val refSpec by argument()
+        .convert(conversion = ArgumentTransformContext::convertRefSpecString)
+        .help {
+            """
+            A refspec in the form `[[local-object:]target-ref]`. Patterned after a typical git refspec, it describes a 
+            local commit, followed by a colon, followed by the name of a target branch on the remote. The local commit
+            is compared to the target ref to determine which commits should be included in the status report.
+            The local object name (and the colon) can be omitted, in which case the default is 
+            `$DEFAULT_LOCAL_OBJECT`. If the target-ref is also omitted, it defaults to the value of the 
+            `${defaultTargetRefDelegate.names.single()}` option or `$DEFAULT_TARGET_REF`.
+            """.trimIndent()
+        }
+        .defaultLazy { RefSpec(DEFAULT_LOCAL_OBJECT, defaultTargetRef) }
+
+    override suspend fun doRun() = appWiring.gitKspr.merge(refSpec)
 }
 
 private class GitHubOptions : OptionGroup(name = "GitHub Options") {
