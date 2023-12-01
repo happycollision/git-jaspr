@@ -1,0 +1,35 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - '*'
+    branches:
+      - 'cross-platform-build'
+
+jobs:
+
+  gradle:
+    name: Native Build
+    strategy:
+      matrix:
+        os: ['ubuntu-latest', 'macos-latest']
+        include:
+          - os: 'ubuntu-latest'
+            label: 'linux'
+          - os: 'macos-latest'
+            label: 'mac'
+    runs-on: ${{matrix.os}}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Install asdf & tools
+        uses: asdf-vm/actions/install@v2
+
+      - name: Build Binary
+        run: JAVA_HOME= ./gradlew :git-kspr:nativeCompile
+        env:
+          JAVA_HOME: ""
+        shell: bash
