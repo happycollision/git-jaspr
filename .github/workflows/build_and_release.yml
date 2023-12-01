@@ -3,21 +3,34 @@ name: Build & Release
 on:
   push:
     tags:
-      - '*'
-    branches:
-      - 'cross-platform-build'
+      - 'v*'
 
 jobs:
+  create_release:
+    name: Create Release
+    if: contains(github.ref, 'v')
+    runs-on: 'ubuntu-latest'
+    outputs:
+      upload_url: ${{steps.create_release.outputs.upload_url}}
+      release_id: ${{steps.create_release.outputs.id}}
+    steps:
+      - name: 'Create Release'
+        id: create_release
+        uses: "softprops/action-gh-release@v1"
+        with:
+          draft: true
+          generate_release_notes: true
 
-  gradle:
+  native_builds:
     name: Native Build
+    needs: ['create_release']
     strategy:
       matrix:
         os: ['ubuntu-latest', 'macos-latest']
         include:
-          - os: 'ubuntu-latest'
+          - os: 'ubuntu-20.04'
             label: 'linux'
-          - os: 'macos-latest'
+          - os: 'macos-11'
             label: 'mac'
     runs-on: ${{matrix.os}}
     steps:
@@ -25,11 +38,33 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install asdf & tools
+      - name: 'Install asdf & tools'
         uses: asdf-vm/actions/install@v2
 
-      - name: Build Binary
+      - name: 'Build Binary'
         run: JAVA_HOME= ./gradlew :git-kspr:nativeCompile
         env:
           JAVA_HOME: ""
         shell: bash
+
+      - name: 'Upload Binary'
+        id: upload-binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_name: 'git-kspr-${{matrix.label}}'
+          asset_path: 'git-kspr/build/native/nativeCompile/git-kspr'
+          asset_content_type: application/octet-stream
+
+  publish_release:
+    name: Publish Release
+    needs: ['create_release', 'native_builds']
+    runs-on: 'ubuntu-latest'
+    steps:
+      - uses: eregon/publish-release@v1.0.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          release_id: ${{ needs.create_release.outputs.release_id }}
