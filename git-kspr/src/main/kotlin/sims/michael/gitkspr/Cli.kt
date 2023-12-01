@@ -137,7 +137,7 @@ private fun ArgumentTransformContext.convertRefSpecString(refSpecString: String)
 }
 
 abstract class GitKsprCommand : CliktCommand() {
-    private val workingDirectory = File(System.getProperty(WORKING_DIR_PROPERTY_NAME) ?: ".")
+    private val workingDirectory = File(System.getProperty(WORKING_DIR_PROPERTY_NAME) ?: ".").findNearestGitDir()
         .canonicalFile
         .also { dir ->
             require(dir.exists()) { "${dir.absolutePath} does not exist" }
@@ -337,6 +337,13 @@ abstract class GitKsprCommand : CliktCommand() {
     }
 
     abstract suspend fun doRun()
+}
+
+internal fun File.findNearestGitDir(): File {
+    val parentFiles = generateSequence(canonicalFile) { it.parentFile }
+    return checkNotNull(parentFiles.firstOrNull { it.resolve(".git").isDirectory }) {
+        "Can't find a git dir in $canonicalFile or any of its parent directories"
+    }
 }
 
 object Cli {

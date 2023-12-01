@@ -9,14 +9,18 @@ import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
+import org.junit.jupiter.api.assertThrows
 import org.slf4j.LoggerFactory
 import org.zeroturnaround.exec.ProcessExecutor
 import sims.michael.gitkspr.RemoteRefEncoding.DEFAULT_REMOTE_BRANCH_PREFIX
 import sims.michael.gitkspr.testing.toStringWithClickableURI
 import java.io.File
+import java.lang.IllegalStateException
 import java.nio.file.Files
 import java.util.*
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 class CliTest {
 
@@ -64,6 +68,62 @@ class CliTest {
             remoteName = expected.remoteName,
         )
         assertEquals(ComparableConfig(expected), ComparableConfig(actual))
+    }
+
+    @Test
+    fun `invoked from subdirectory finds repo`() {
+        val scratchDir = createTempDir()
+        // This will come from the configuration, the rest will be inferred by the URI
+        val explicitlyConfiguredHost = "example.com"
+        val expected = config(
+            workingDirectory = scratchDir.repoDir(),
+            gitHubInfo = GitHubInfo(
+                host = explicitlyConfiguredHost,
+                owner = "SomeOwner",
+                name = "some-repo-name",
+            ),
+            logsDirectory = scratchDir.logsDir(),
+        )
+        val invokeLocation = scratchDir.repoDir().resolve("my/sub/dir")
+            .also { it.mkdirs() }
+        val actual = getEffectiveConfigFromCli(
+            scratchDir,
+            remoteUri = "git@github.com:SomeOwner/some-repo-name.git",
+            remoteName = expected.remoteName,
+            homeDirConfig = mapOf("github-host" to explicitlyConfiguredHost),
+            invokeLocation = invokeLocation,
+        )
+        assertEquals(ComparableConfig(expected), ComparableConfig(actual))
+    }
+
+    @Test
+    fun `fails on no git dir`() {
+        val scratchDir = createTempDir()
+        // This will come from the configuration, the rest will be inferred by the URI
+        val explicitlyConfiguredHost = "example.com"
+        val expected = config(
+            workingDirectory = scratchDir.repoDir(),
+            gitHubInfo = GitHubInfo(
+                host = explicitlyConfiguredHost,
+                owner = "SomeOwner",
+                name = "some-repo-name",
+            ),
+            logsDirectory = scratchDir.logsDir(),
+        )
+        val invokeLocation = scratchDir.resolve("otherProject/")
+            .also { it.mkdirs() }
+        val thrownMessage = assertThrows<IllegalStateException> {
+            executeCli(
+                scratchDir,
+                remoteUri = "git@github.com:SomeOwner/some-repo-name.git",
+                remoteName = expected.remoteName,
+                homeDirConfig = mapOf("github-host" to explicitlyConfiguredHost),
+                strings = listOf("status"),
+                invokeLocation = invokeLocation,
+            )
+        }.message
+        assertNotNull(thrownMessage)
+        assertContains(thrownMessage, "java.lang.IllegalStateException: Can't find a git dir")
     }
 
     @Test
@@ -165,6 +225,7 @@ private fun getEffectiveConfigFromCli(
     extraCliArgs: List<String> = emptyList(),
     homeDirConfig: Map<String, String> = emptyMap(),
     repoDirConfig: Map<String, String> = emptyMap(),
+    invokeLocation: File? = null,
 ): Config = Json.decodeFromString(
     executeCli(
         scratchDir,
@@ -174,6 +235,7 @@ private fun getEffectiveConfigFromCli(
         homeDirConfig,
         repoDirConfig,
         listOf("status", "--show-config"),
+        invokeLocation,
     ),
 )
 
@@ -185,6 +247,7 @@ private fun executeCli(
     homeDirConfig: Map<String, String> = emptyMap(),
     repoDirConfig: Map<String, String> = emptyMap(),
     strings: List<String>,
+    invokeLocation: File? = null,
 ): String {
     val homeDir = scratchDir.homeDir()
     check(homeDir.mkdir())
@@ -201,7 +264,7 @@ private fun executeCli(
 
     val processResult = ProcessExecutor()
         .environment("HOME", homeDir.absolutePath)
-        .command(getInvokeCliList(repoDir) + strings + extraCliArgs + remoteName)
+        .command(getInvokeCliList(invokeLocation ?: repoDir) + strings + extraCliArgs + remoteName)
         .readOutput(true)
         .execute()
 
@@ -242,14 +305,7 @@ private fun getInvokeCliList(workingDir: File = findNearestGitDir()): List<Strin
     ) + Cli::class.java.name
 }
 
-private fun findNearestGitDir(): File {
-    val initialDir = File(".").canonicalFile
-    var currentPath = initialDir
-    val parentFiles = generateSequence { currentPath.also { currentPath = currentPath.parentFile } }
-    return checkNotNull(parentFiles.firstOrNull { it.resolve(".git").isDirectory }) {
-        "Can't find a git dir in $initialDir or any of its parent directories"
-    }
-}
+private fun findNearestGitDir() = File(".").findNearestGitDir()
 
 private val json = Json {
     prettyPrint = true
