@@ -56,6 +56,14 @@ dependencies {
     testImplementation(libs.jgit.junit)
 }
 
+configurations.all {
+    resolutionStrategy.dependencySubstitution {
+        substitute(module("com.jcraft:jsch:0.1.55"))
+            .using(module("com.github.mwiede:jsch:0.2.13"))
+            .because("See https://github.com/mwiede/jsch#why-should-you-use-this-library")
+    }
+}
+
 // Apply a specific Java toolchain to ease working on different environments.
 java {
     toolchain {
