@@ -347,6 +347,27 @@ class GitKsprTest {
     }
 
     @Test
+    fun `status empty stack`() {
+        withTestSetup {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit { title = "one" }
+                        commit { title = "two" }
+                        commit {
+                            title = "three"
+                            localRefs += "development"
+                            remoteRefs += "main"
+                        }
+                    }
+                },
+            )
+
+            assertEquals("Stack is empty.", gitKspr.getAndPrintStatusString())
+        }
+    }
+
+    @Test
     fun `status none pushed`() {
         withTestSetup {
             createCommitsFrom(
