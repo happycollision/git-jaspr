@@ -55,6 +55,9 @@ class GitKspr(
                     baseRefName = prevCommit?.toRemoteRefName() ?: refSpec.remoteRef,
                     title = currentCommit.shortMessage,
                     body = currentCommit.fullMessage,
+                    checksPass = existingPr?.checksPass,
+                    approved = existingPr?.approved,
+                    checkConclusionStates = existingPr?.checkConclusionStates.orEmpty(),
                 )
             }
             .filter { pr -> existingPrsByCommitId[pr.commitId] != pr }
