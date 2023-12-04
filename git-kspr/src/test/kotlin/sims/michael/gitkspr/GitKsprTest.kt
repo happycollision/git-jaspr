@@ -1,27 +1,26 @@
 package sims.michael.gitkspr
 
-import org.eclipse.jgit.junit.MockSystemReader
-import org.eclipse.jgit.lib.Constants.GIT_COMMITTER_EMAIL_KEY
-import org.eclipse.jgit.lib.Constants.GIT_COMMITTER_NAME_KEY
-import org.eclipse.jgit.util.SystemReader
 import org.junit.jupiter.api.*
-import org.junit.jupiter.api.DynamicTest.dynamicTest
-import org.slf4j.LoggerFactory
-import sims.michael.gitkspr.JGitClient.Companion.HEAD
-import sims.michael.gitkspr.JGitClient.Companion.R_HEADS
-import sims.michael.gitkspr.RemoteRefEncoding.DEFAULT_REMOTE_BRANCH_PREFIX
+import org.slf4j.Logger
 import sims.michael.gitkspr.RemoteRefEncoding.buildRemoteRef
+import sims.michael.gitkspr.githubtests.GitHubTestHarness
 import sims.michael.gitkspr.githubtests.GitHubTestHarness.Companion.withTestSetup
 import sims.michael.gitkspr.githubtests.TestCaseData
 import sims.michael.gitkspr.githubtests.generatedtestdsl.testCase
 import kotlin.test.assertEquals
 
-class GitKsprTest {
+interface GitKsprTest {
 
-    private val logger = LoggerFactory.getLogger(GitKsprTest::class.java)
+    val logger: Logger
+    val useFakeRemote: Boolean get() = true
 
-    @BeforeEach
-    fun setUp() = setGitCommitterInfo("Frank Grimes", "grimey@example.com")
+    suspend fun GitHubTestHarness.waitForChecksToConclude(
+        vararg commitFilter: String,
+        timeout: Long = 30_000,
+        pollingDelay: Long = 5_000, // Lowering this value too much will result in exhausting rate limits
+    )
+
+    suspend fun <T> assertEventuallyEquals(expected: T, getActual: suspend () -> T)
 
     @Test
     fun `windowedPairs produces expected result`() {
@@ -33,7 +32,7 @@ class GitKsprTest {
 
     @Test
     fun `push fails unless workdir is clean`() {
-        withTestSetup {
+        withTestSetup(useFakeRemote) {
             createCommitsFrom(
                 testCase {
                     repository {
@@ -53,8 +52,570 @@ class GitKsprTest {
     }
 
     @Test
+    fun `getRemoteCommitStatuses produces expected result`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "1"
+                            localRefs += "development"
+                        }
+                    }
+                },
+            )
+            gitKspr.push()
+            localGit.fetch(DEFAULT_REMOTE_NAME)
+            val stack = localGit.getLocalCommitStack(DEFAULT_REMOTE_NAME, DEFAULT_LOCAL_OBJECT, DEFAULT_TARGET_REF)
+            val remoteCommitStatuses = gitKspr.getRemoteCommitStatuses(stack)
+            assertEquals(localGit.log("HEAD", maxCount = 1).single(), remoteCommitStatuses.single().remoteCommit)
+        }
+    }
+
+    //region status tests
+    @Test
+    fun `status empty stack`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit { title = "one" }
+                        commit { title = "two" }
+                        commit {
+                            title = "three"
+                            localRefs += "development"
+                            remoteRefs += "main"
+                        }
+                    }
+                },
+            )
+
+            assertEquals("Stack is empty.", gitKspr.getAndPrintStatusString())
+        }
+    }
+
+    @Test
+    fun `status stack not pushed`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit { title = "one" }
+                        commit { title = "two" }
+                        commit {
+                            title = "three"
+                            localRefs += "development"
+                        }
+                    }
+                },
+            )
+
+            assertEquals(
+                """
+                    |[- - - - -] one
+                    |[- - - - -] two
+                    |[- - - - -] three
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                gitKspr.getAndPrintStatusString(),
+            )
+        }
+    }
+
+    @Test
+    fun `status one commit pushed without PR`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            remoteRefs += buildRemoteRef("one")
+                        }
+                        commit { title = "two" }
+                        commit {
+                            title = "three"
+                            localRefs += "development"
+                        }
+                    }
+                },
+            )
+
+            assertEquals(
+                """
+                    |[+ - - - -] one
+                    |[- - - - -] two
+                    |[- - - - -] three
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                gitKspr.getAndPrintStatusString(),
+            )
+        }
+    }
+
+    @Test
+    fun `status one PR`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            remoteRefs += buildRemoteRef("one")
+                        }
+                        commit { title = "two" }
+                        commit {
+                            title = "three"
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                    }
+                },
+            )
+
+            assertEquals(
+                """
+                    |[+ + ? - -] one
+                    |[- - - - -] two
+                    |[- - - - -] three
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                gitKspr.getAndPrintStatusString(),
+            )
+        }
+    }
+
+    @Test
+    fun `status one PR passing checks`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            remoteRefs += buildRemoteRef("one")
+                            willPassVerification = true
+                        }
+                        commit { title = "two" }
+                        commit {
+                            title = "three"
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                    }
+                },
+            )
+
+            waitForChecksToConclude("one")
+
+            assertEquals(
+                """
+                    |[+ + + - -] one
+                    |[- - - - -] two
+                    |[- - - - -] three
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                gitKspr.getAndPrintStatusString(),
+            )
+        }
+    }
+
+    @Test
+    fun `status one PR approved`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("one")
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("two")
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("three")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
+                        title = "two"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                    }
+                },
+            )
+
+            waitForChecksToConclude("one")
+
+            assertEquals(
+                """
+                    |[+ + + + +] one
+                    |[+ + + - -] two
+                    |[+ + + - -] three
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                gitKspr.getAndPrintStatusString(),
+            )
+        }
+    }
+
+    @Test
+    fun `status stack one commit behind target`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "in_both_main_and_development"
+                            branch {
+                                commit {
+                                    title = "only_on_main"
+                                    remoteRefs += "main"
+                                }
+                            }
+                        }
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("one")
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("two")
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("three")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
+                        title = "two"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                },
+            )
+
+            waitForChecksToConclude("one", "two", "three")
+
+            assertEquals(
+                """
+                    |[+ + + + -] one
+                    |[+ + + + -] two
+                    |[+ + + + -] three
+                    |
+                    |Your stack is out-of-date with the base branch (1 commit behind main).
+                    |You'll need to rebase it (`git rebase origin/main`) before your stack will be mergeable.
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                gitKspr.getAndPrintStatusString(),
+            )
+        }
+    }
+
+    @Test
+    fun `status stack two commits behind target`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "in_both_main_and_development"
+                            branch {
+                                commit {
+                                    title = "only_on_main_one"
+                                }
+                                commit {
+                                    title = "only_on_main_two"
+                                    remoteRefs += "main"
+                                }
+                            }
+                        }
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("one")
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("two")
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("three")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
+                        title = "two"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                },
+            )
+
+            waitForChecksToConclude("one", "two", "three")
+
+            assertEquals(
+                """
+                    |[+ + + + -] one
+                    |[+ + + + -] two
+                    |[+ + + + -] three
+                    |
+                    |Your stack is out-of-date with the base branch (2 commits behind main).
+                    |You'll need to rebase it (`git rebase origin/main`) before your stack will be mergeable.
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                gitKspr.getAndPrintStatusString(),
+            )
+        }
+    }
+
+    @Test
+    fun `status stack check all mergeable`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("one")
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("two")
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("three")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
+                        title = "two"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                },
+            )
+
+            waitForChecksToConclude("one", "two", "three")
+
+            assertEquals(
+                """
+                    |[+ + + + +] one
+                    |[+ + + + +] two
+                    |[+ + + + +] three
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                gitKspr.getAndPrintStatusString(),
+            )
+        }
+    }
+
+    @Test
+    fun `status middle commit approved`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("one")
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("two")
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("three")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
+                        title = "two"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                    }
+                },
+            )
+
+            gitKspr.push()
+
+            waitForChecksToConclude("one", "two", "three")
+
+            assertEventuallyEquals(
+                """
+                    |[+ + + - -] one
+                    |[+ + + + -] two
+                    |[+ + + - -] three
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                getActual = { gitKspr.getStatusString() },
+            )
+        }
+    }
+
+    @Test
+    fun `status middle commit fails`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("one")
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = false
+                            remoteRefs += buildRemoteRef("two")
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("three")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
+                        title = "two"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                    }
+                },
+            )
+
+            gitKspr.push()
+
+            waitForChecksToConclude("one", "two", "three")
+
+            assertEquals(
+                """
+                    |[+ + + - -] one
+                    |[+ + - - -] two
+                    |[+ + + - -] three
+                """
+                    .trimMargin()
+                    .toStatusString(),
+                gitKspr.getStatusString(),
+            )
+        }
+    }
+
+    //endregion
+
+    //region push tests
+    @Test
     fun `push fetches from remote`() {
-        withTestSetup {
+        withTestSetup(useFakeRemote) {
             createCommitsFrom(
                 testCase {
                     repository {
@@ -133,13 +694,16 @@ class GitKsprTest {
                 },
             ),
         ).map { (name, expected, collectCommits) ->
-            dynamicTest(name) {
+            DynamicTest.dynamicTest(name) {
                 withTestSetup {
                     createCommitsFrom(collectCommits)
                     gitKspr.push()
                     assertEquals(
                         expected,
-                        localGit.logRange("$HEAD~${collectCommits.repository.commits.size}", HEAD).map(Commit::id),
+                        localGit.logRange(
+                            "${JGitClient.HEAD}~${collectCommits.repository.commits.size}",
+                            JGitClient.HEAD,
+                        ).map(Commit::id),
                     )
                 }
             }
@@ -148,7 +712,7 @@ class GitKsprTest {
 
     @Test
     fun `push pushes to expected remote branch names`() {
-        withTestSetup {
+        withTestSetup(useFakeRemote) {
             createCommitsFrom(
                 testCase {
                     repository {
@@ -164,17 +728,15 @@ class GitKsprTest {
             gitKspr.push()
 
             assertEquals(
-                (1..3).associate {
-                    "$R_HEADS${buildRemoteRef(it.toString())}" to it.toString()
-                },
-                remoteGit.commitIdsByBranch(),
+                (1..3).map { buildRemoteRef(it.toString()) },
+                localGit.getRemoteBranches().map(RemoteBranch::name) - DEFAULT_TARGET_REF,
             )
         }
     }
 
     @Test
     fun `push pushes revision history branches on update`(testInfo: TestInfo) {
-        withTestSetup {
+        withTestSetup(useFakeRemote) {
             createCommitsFrom(
                 testCase {
                     repository {
@@ -224,7 +786,7 @@ class GitKsprTest {
                 localGit
                     .getRemoteBranches()
                     .map(RemoteBranch::name)
-                    .filter { name -> name.startsWith(DEFAULT_REMOTE_BRANCH_PREFIX) }
+                    .filter { name -> name.startsWith(RemoteRefEncoding.DEFAULT_REMOTE_BRANCH_PREFIX) }
                     .sorted(),
             )
         }
@@ -232,7 +794,7 @@ class GitKsprTest {
 
     @Test
     fun `push updates base refs for any reordered PRs`() {
-        withTestSetup {
+        withTestSetup(useFakeRemote) {
             createCommitsFrom(
                 testCase {
                     repository {
@@ -292,7 +854,7 @@ class GitKsprTest {
 
     @Test
     fun `push fails when multiple PRs for a given commit ID exist`() {
-        withTestSetup {
+        withTestSetup(useFakeRemote) {
             createCommitsFrom(
                 testCase {
                     repository {
@@ -307,12 +869,12 @@ class GitKsprTest {
                         }
                     }
                     pullRequest {
-                        headRef = buildRemoteRef("one")
-                        baseRef = "main"
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
                         title = "One PR"
                     }
                     pullRequest {
-                        headRef = buildRemoteRef("one")
+                        headRef = buildRemoteRef("two")
                         baseRef = "main"
                         title = "Two PR"
                     }
@@ -326,439 +888,70 @@ class GitKsprTest {
     }
 
     @Test
-    fun `getRemoteCommitStatuses produces expected result`() {
-        withTestSetup {
+    fun `reorder, drop, add, and re-push`(testInfo: TestInfo) {
+        withTestSetup(useFakeRemote) {
             createCommitsFrom(
                 testCase {
                     repository {
+                        commit { title = "A" }
+                        commit { title = "B" }
+                        commit { title = "C" }
+                        commit { title = "D" }
                         commit {
-                            title = "1"
-                            localRefs += "development"
+                            title = "E"
+                            localRefs += "main"
                         }
                     }
                 },
             )
+
             gitKspr.push()
-            localGit.fetch(DEFAULT_REMOTE_NAME)
-            val stack = localGit.getLocalCommitStack(DEFAULT_REMOTE_NAME, DEFAULT_LOCAL_OBJECT, DEFAULT_TARGET_REF)
-            val remoteCommitStatuses = gitKspr.getRemoteCommitStatuses(stack)
-            assertEquals(localGit.log("HEAD", maxCount = 1).single(), remoteCommitStatuses.single().remoteCommit)
-        }
-    }
 
-    @Test
-    fun `status empty stack`() {
-        withTestSetup {
             createCommitsFrom(
                 testCase {
                     repository {
+                        commit { title = "E" }
+                        commit { title = "C" }
                         commit { title = "one" }
-                        commit { title = "two" }
-                        commit {
-                            title = "three"
-                            localRefs += "development"
-                            remoteRefs += "main"
-                        }
-                    }
-                },
-            )
-
-            assertEquals("Stack is empty.", gitKspr.getAndPrintStatusString())
-        }
-    }
-
-    @Test
-    fun `status none pushed`() {
-        withTestSetup {
-            createCommitsFrom(
-                testCase {
-                    repository {
-                        commit { title = "one" }
-                        commit { title = "two" }
-                        commit {
-                            title = "three"
-                            localRefs += "development"
-                        }
-                    }
-                },
-            )
-
-            assertEquals(
-                """
-                    |[- - - - -] one
-                    |[- - - - -] two
-                    |[- - - - -] three
-                """
-                    .trimMargin()
-                    .toStatusString(),
-                gitKspr.getAndPrintStatusString(),
-            )
-        }
-    }
-
-    @Test
-    fun `status one pushed`() {
-        withTestSetup {
-            createCommitsFrom(
-                testCase {
-                    repository {
-                        commit {
-                            title = "one"
-                            remoteRefs += buildRemoteRef("one")
-                        }
-                        commit { title = "two" }
-                        commit {
-                            title = "three"
-                            localRefs += "development"
-                        }
-                    }
-                },
-            )
-
-            assertEquals(
-                """
-                    |[+ - - - -] one
-                    |[- - - - -] two
-                    |[- - - - -] three
-                """
-                    .trimMargin()
-                    .toStatusString(),
-                gitKspr.getAndPrintStatusString(),
-            )
-        }
-    }
-
-    @Test
-    fun `status one pull request`() {
-        withTestSetup {
-            createCommitsFrom(
-                testCase {
-                    repository {
-                        commit {
-                            title = "one"
-                            remoteRefs += buildRemoteRef("one")
-                        }
-                        commit { title = "two" }
-                        commit {
-                            title = "three"
-                            localRefs += "development"
-                        }
-                    }
-                    pullRequest {
-                        headRef = buildRemoteRef("one")
-                        baseRef = "main"
-                        title = "one"
-                    }
-                },
-            )
-
-            assertEquals(
-                """
-                    |[+ + ? - -] one
-                    |[- - - - -] two
-                    |[- - - - -] three
-                """
-                    .trimMargin()
-                    .toStatusString(),
-                gitKspr.getAndPrintStatusString(),
-            )
-        }
-    }
-
-    @Test
-    fun `status one checks pass`() {
-        withTestSetup {
-            createCommitsFrom(
-                testCase {
-                    repository {
-                        commit {
-                            title = "one"
-                            remoteRefs += buildRemoteRef("one")
-                            willPassVerification = true
-                        }
-                        commit { title = "two" }
-                        commit {
-                            title = "three"
-                            localRefs += "development"
-                        }
-                    }
-                    pullRequest {
-                        headRef = buildRemoteRef("one")
-                        baseRef = "main"
-                        title = "one"
-                    }
-                },
-            )
-
-            assertEquals(
-                """
-                    |[+ + + - -] one
-                    |[- - - - -] two
-                    |[- - - - -] three
-                """
-                    .trimMargin()
-                    .toStatusString(),
-                gitKspr.getAndPrintStatusString(),
-            )
-        }
-    }
-
-    @Test
-    fun `approved one`() {
-        withTestSetup {
-            createCommitsFrom(
-                testCase {
-                    repository {
-                        commit {
-                            title = "one"
-                            willPassVerification = true
-                            remoteRefs += buildRemoteRef("one")
-                        }
+                        commit { title = "B" }
+                        commit { title = "A" }
                         commit {
                             title = "two"
-                            willPassVerification = true
-                            remoteRefs += buildRemoteRef("two")
+                            localRefs += "main"
                         }
-                        commit {
-                            title = "three"
-                            willPassVerification = true
-                            remoteRefs += buildRemoteRef("three")
-                            localRefs += "development"
-                        }
-                    }
-                    pullRequest {
-                        headRef = buildRemoteRef("one")
-                        baseRef = "main"
-                        title = "one"
-                        willBeApprovedByUserKey = "michael"
-                    }
-                    pullRequest {
-                        headRef = buildRemoteRef("two")
-                        baseRef = buildRemoteRef("one")
-                        title = "two"
-                    }
-                    pullRequest {
-                        headRef = buildRemoteRef("three")
-                        baseRef = buildRemoteRef("two")
-                        title = "three"
                     }
                 },
             )
 
-            assertEquals(
-                """
-                    |[+ + + + +] one
-                    |[+ + + - -] two
-                    |[+ + + - -] three
-                """
-                    .trimMargin()
-                    .toStatusString(),
-                gitKspr.getAndPrintStatusString(),
-            )
+            gitKspr.push()
+
+            // TODO the filter is having some impact on ordering. better if the list was properly ordered regardless
+            val remotePrs = gitHub.getPullRequestsById(listOf("E", "C", "one", "B", "A", "two"))
+
+            val prs = remotePrs.map { pullRequest -> pullRequest.baseRefName to pullRequest.headRefName }.toSet()
+            val commits = localGit
+                .log(JGitClient.HEAD, 6)
+                .reversed()
+                .windowedPairs()
+                .map { (prevCommit, currentCommit) ->
+                    val baseRefName = prevCommit
+                        ?.let {
+                            buildRemoteRef(checkNotNull(it.id), DEFAULT_TARGET_REF)
+                        }
+                        ?: DEFAULT_TARGET_REF
+                    val headRefName = buildRemoteRef(checkNotNull(currentCommit.id), DEFAULT_TARGET_REF)
+                    baseRefName to headRefName
+                }
+                .toSet()
+            assertEquals(commits, prs)
         }
     }
+    //endregion
 
-    @Test
-    fun `local stack is one commit behind base branch`() {
-        withTestSetup {
-            createCommitsFrom(
-                testCase {
-                    repository {
-                        commit {
-                            title = "in_both_main_and_development"
-                            branch {
-                                commit {
-                                    title = "only_on_main"
-                                    remoteRefs += "main"
-                                }
-                            }
-                        }
-                        commit {
-                            title = "one"
-                            willPassVerification = true
-                            remoteRefs += buildRemoteRef("one")
-                        }
-                        commit {
-                            title = "two"
-                            willPassVerification = true
-                            remoteRefs += buildRemoteRef("two")
-                        }
-                        commit {
-                            title = "three"
-                            willPassVerification = true
-                            remoteRefs += buildRemoteRef("three")
-                            localRefs += "development"
-                        }
-                    }
-                    pullRequest {
-                        headRef = buildRemoteRef("one")
-                        baseRef = "main"
-                        title = "one"
-                        willBeApprovedByUserKey = "michael"
-                    }
-                    pullRequest {
-                        headRef = buildRemoteRef("two")
-                        baseRef = buildRemoteRef("one")
-                        title = "two"
-                        willBeApprovedByUserKey = "michael"
-                    }
-                    pullRequest {
-                        headRef = buildRemoteRef("three")
-                        baseRef = buildRemoteRef("two")
-                        title = "three"
-                        willBeApprovedByUserKey = "michael"
-                    }
-                },
-            )
-
-            assertEquals(
-                """
-                    |[+ + + + -] one
-                    |[+ + + + -] two
-                    |[+ + + + -] three
-                    |
-                    |Your stack is out-of-date with the base branch (1 commit behind main).
-                    |You'll need to rebase it (`git rebase origin/main`) before your stack will be mergeable.
-                """
-                    .trimMargin()
-                    .toStatusString(),
-                gitKspr.getAndPrintStatusString(),
-            )
-        }
-    }
-
-    @Test
-    fun `local stack is two commits behind base branch`() {
-        withTestSetup {
-            createCommitsFrom(
-                testCase {
-                    repository {
-                        commit {
-                            title = "in_both_main_and_development"
-                            branch {
-                                commit {
-                                    title = "only_on_main_one"
-                                }
-                                commit {
-                                    title = "only_on_main_two"
-                                    remoteRefs += "main"
-                                }
-                            }
-                        }
-                        commit {
-                            title = "one"
-                            willPassVerification = true
-                            remoteRefs += buildRemoteRef("one")
-                        }
-                        commit {
-                            title = "two"
-                            willPassVerification = true
-                            remoteRefs += buildRemoteRef("two")
-                        }
-                        commit {
-                            title = "three"
-                            willPassVerification = true
-                            remoteRefs += buildRemoteRef("three")
-                            localRefs += "development"
-                        }
-                    }
-                    pullRequest {
-                        headRef = buildRemoteRef("one")
-                        baseRef = "main"
-                        title = "one"
-                        willBeApprovedByUserKey = "michael"
-                    }
-                    pullRequest {
-                        headRef = buildRemoteRef("two")
-                        baseRef = buildRemoteRef("one")
-                        title = "two"
-                        willBeApprovedByUserKey = "michael"
-                    }
-                    pullRequest {
-                        headRef = buildRemoteRef("three")
-                        baseRef = buildRemoteRef("two")
-                        title = "three"
-                        willBeApprovedByUserKey = "michael"
-                    }
-                },
-            )
-
-            assertEquals(
-                """
-                    |[+ + + + -] one
-                    |[+ + + + -] two
-                    |[+ + + + -] three
-                    |
-                    |Your stack is out-of-date with the base branch (2 commits behind main).
-                    |You'll need to rebase it (`git rebase origin/main`) before your stack will be mergeable.
-                """
-                    .trimMargin()
-                    .toStatusString(),
-                gitKspr.getAndPrintStatusString(),
-            )
-        }
-    }
-
-    @Test
-    fun `stack check all mergeable`() {
-        withTestSetup {
-            createCommitsFrom(
-                testCase {
-                    repository {
-                        commit {
-                            title = "one"
-                            willPassVerification = true
-                            remoteRefs += buildRemoteRef("one")
-                        }
-                        commit {
-                            title = "two"
-                            willPassVerification = true
-                            remoteRefs += buildRemoteRef("two")
-                        }
-                        commit {
-                            title = "three"
-                            willPassVerification = true
-                            remoteRefs += buildRemoteRef("three")
-                            localRefs += "development"
-                        }
-                    }
-                    pullRequest {
-                        headRef = buildRemoteRef("one")
-                        baseRef = "main"
-                        title = "one"
-                        willBeApprovedByUserKey = "michael"
-                    }
-                    pullRequest {
-                        headRef = buildRemoteRef("two")
-                        baseRef = buildRemoteRef("one")
-                        title = "two"
-                        willBeApprovedByUserKey = "michael"
-                    }
-                    pullRequest {
-                        headRef = buildRemoteRef("three")
-                        baseRef = buildRemoteRef("two")
-                        title = "three"
-                        willBeApprovedByUserKey = "michael"
-                    }
-                },
-            )
-
-            assertEquals(
-                """
-                    |[+ + + + +] one
-                    |[+ + + + +] two
-                    |[+ + + + +] three
-                """
-                    .trimMargin()
-                    .toStatusString(),
-                gitKspr.getAndPrintStatusString(),
-            )
-        }
-    }
-
+    //region merge tests
     @Test
     fun `merge happy path`() {
-        withTestSetup {
+        withTestSetup(useFakeRemote) {
             createCommitsFrom(
                 testCase {
                     repository {
@@ -800,6 +993,7 @@ class GitKsprTest {
                 },
             )
 
+            waitForChecksToConclude("one", "two", "three")
             gitKspr.merge(RefSpec("development", "main"))
 
             assertEquals(
@@ -811,7 +1005,7 @@ class GitKsprTest {
 
     @Test
     fun `merge fails when behind target branch`() {
-        withTestSetup {
+        withTestSetup(useFakeRemote) {
             createCommitsFrom(
                 testCase {
                     repository {
@@ -877,7 +1071,7 @@ class GitKsprTest {
 
     @Test
     fun `merge pushes latest commit that passes the stack check`() {
-        withTestSetup {
+        withTestSetup(useFakeRemote) {
             createCommitsFrom(
                 testCase {
                     repository {
@@ -918,6 +1112,7 @@ class GitKsprTest {
                 },
             )
 
+            waitForChecksToConclude("one", "two", "three")
             gitKspr.merge(RefSpec("development", "main"))
             assertEquals(
                 listOf("three"), // All mergeable commits were merged, leaving "three" as the only one not merged
@@ -930,59 +1125,7 @@ class GitKsprTest {
 
     @Test
     fun `merge sets baseRef to targetRef on the latest PR that is mergeable`() {
-        withTestSetup {
-            createCommitsFrom(
-                testCase {
-                    repository {
-                        commit {
-                            title = "one"
-                            willPassVerification = true
-                            remoteRefs += buildRemoteRef("one")
-                        }
-                        commit {
-                            title = "two"
-                            willPassVerification = true
-                            remoteRefs += buildRemoteRef("two")
-                        }
-                        commit {
-                            title = "three"
-                            willPassVerification = true
-                            remoteRefs += buildRemoteRef("three")
-                            localRefs += "development"
-                        }
-                    }
-                    pullRequest {
-                        headRef = buildRemoteRef("one")
-                        baseRef = "main"
-                        title = "one"
-                        willBeApprovedByUserKey = "michael"
-                    }
-                    pullRequest {
-                        headRef = buildRemoteRef("two")
-                        baseRef = buildRemoteRef("one")
-                        title = "two"
-                        willBeApprovedByUserKey = "michael"
-                    }
-                    pullRequest {
-                        headRef = buildRemoteRef("three")
-                        baseRef = buildRemoteRef("two")
-                        title = "three"
-                    }
-                },
-            )
-
-            gitKspr.merge(RefSpec("development", "main"))
-            println(gitHub.getPullRequests())
-            assertEquals(
-                DEFAULT_TARGET_REF,
-                gitHub.getPullRequestsByHeadRef(buildRemoteRef("two")).last().baseRefName,
-            )
-        }
-    }
-
-    @Test
-    fun `merge closes PRs that were rolled up into the PR for the latest mergeable commit`() {
-        withTestSetup {
+        withTestSetup(useFakeRemote) {
             createCommitsFrom(
                 testCase {
                     repository {
@@ -1045,17 +1188,94 @@ class GitKsprTest {
                 },
             )
 
+            waitForChecksToConclude("one", "two", "three", "four", "five")
+
             gitKspr.merge(RefSpec("development", "main"))
             assertEquals(
-                listOf("five"),
-                gitHub.getPullRequests().map(PullRequest::title),
+                DEFAULT_TARGET_REF,
+                gitHub.getPullRequestsByHeadRef(buildRemoteRef("four")).last().baseRefName,
             )
         }
     }
 
     @Test
-    fun `none are mergeable`() {
-        withTestSetup {
+    fun `merge closes PRs that were rolled up into the PR for the latest mergeable commit`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("one")
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("two")
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("three")
+                        }
+                        commit {
+                            title = "four"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("four")
+                        }
+                        commit {
+                            title = "five"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("five")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
+                        title = "two"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("four")
+                        baseRef = buildRemoteRef("three")
+                        title = "four"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("five")
+                        baseRef = buildRemoteRef("four")
+                        title = "five"
+                    }
+                },
+            )
+
+            waitForChecksToConclude("one", "two", "three", "four", "five")
+
+            gitKspr.merge(RefSpec("development", "main"))
+            assertEventuallyEquals(
+                listOf("five"),
+                getActual = { gitHub.getPullRequests().map(PullRequest::title) },
+            )
+        }
+    }
+
+    @Test
+    fun `merge - none are mergeable`() {
+        withTestSetup(useFakeRemote) {
             createCommitsFrom(
                 testCase {
                     repository {
@@ -1104,7 +1324,7 @@ class GitKsprTest {
 
     @Test
     fun `merge with refspec`() {
-        withTestSetup {
+        withTestSetup(useFakeRemote) {
             createCommitsFrom(
                 testCase {
                     repository {
@@ -1146,28 +1366,17 @@ class GitKsprTest {
                 },
             )
 
+            waitForChecksToConclude("one", "two")
             gitKspr.merge(RefSpec("development^", "main"))
-            assertEquals(
+            assertEventuallyEquals(
                 listOf("three"),
-                gitHub.getPullRequests().map(PullRequest::title),
+                getActual = { gitHub.getPullRequests().map(PullRequest::title) },
             )
         }
     }
 
-    @Suppress("SameParameterValue")
-    private fun setGitCommitterInfo(name: String, email: String) {
-        SystemReader
-            .setInstance(
-                MockSystemReader()
-                    .apply {
-                        setProperty(GIT_COMMITTER_NAME_KEY, name)
-                        setProperty(GIT_COMMITTER_EMAIL_KEY, email)
-                    },
-            )
-    }
+    //endregion
 }
-
-suspend fun GitKspr.getAndPrintStatusString() = getStatusString().also(::print)
 
 // It may seem silly to repeat what is already defined in GitKspr.HEADER, but if a dev changes the header I want
 // these tests to break so that any such changes are very deliberate. This is a compromise between referencing the
@@ -1183,3 +1392,5 @@ fun String.toStatusString() =
             |$this
 
     """.trimMargin()
+
+suspend fun GitKspr.getAndPrintStatusString() = getStatusString().also(::print)
