@@ -61,6 +61,7 @@ class GitHubClientImpl(
             .mapNotNull { pr ->
                 val commitId = getCommitIdFromRemoteRef(pr.headRefName, remoteBranchPrefix)
                 if (ids?.contains(commitId) != false) {
+                    val state = pr.commits.nodes?.singleOrNull()?.commit?.statusCheckRollup?.state
                     PullRequest(
                         pr.id,
                         commitId,
@@ -69,7 +70,7 @@ class GitHubClientImpl(
                         pr.baseRefName,
                         pr.title,
                         pr.body,
-                        pr.commits.nodes?.singleOrNull()?.commit?.statusCheckRollup?.state == StatusState.SUCCESS,
+                        state?.let { it == StatusState.SUCCESS },
                         pr.reviewDecision == PullRequestReviewDecision.APPROVED,
                         pr.conclusionStates,
                     )
