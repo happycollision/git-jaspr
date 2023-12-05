@@ -650,10 +650,17 @@ interface GitKsprTest {
                 listOf("0", "1", "2"),
                 testCase {
                     repository {
-                        commit { title = "0" }
-                        commit { title = "1" }
+                        commit {
+                            title = "0"
+                            id = ""
+                        }
+                        commit {
+                            title = "1"
+                            id = ""
+                        }
                         commit {
                             title = "2"
+                            id = ""
                             localRefs += "main"
                         }
                     }
@@ -666,10 +673,17 @@ interface GitKsprTest {
                     repository {
                         commit { title = "A" }
                         commit { title = "B" }
-                        commit { title = "0" }
-                        commit { title = "1" }
+                        commit {
+                            title = "0"
+                            id = ""
+                        }
+                        commit {
+                            title = "1"
+                            id = ""
+                        }
                         commit {
                             title = "2"
+                            id = ""
                             localRefs += "main"
                         }
                     }
@@ -680,12 +694,27 @@ interface GitKsprTest {
                 listOf("A", "B", "0", "1", "2", "C", "D"),
                 testCase {
                     repository {
-                        commit { title = "A" }
-                        commit { title = "B" }
-                        commit { title = "0" }
-                        commit { title = "1" }
-                        commit { title = "2" }
-                        commit { title = "C" }
+                        commit {
+                            title = "A"
+                        }
+                        commit {
+                            title = "B"
+                        }
+                        commit {
+                            title = "0"
+                            id = ""
+                        }
+                        commit {
+                            title = "1"
+                            id = ""
+                        }
+                        commit {
+                            title = "2"
+                            id = ""
+                        }
+                        commit {
+                            title = "C"
+                        }
                         commit {
                             title = "D"
                             localRefs += "main"

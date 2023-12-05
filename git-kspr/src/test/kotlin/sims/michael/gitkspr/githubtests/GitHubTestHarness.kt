@@ -288,15 +288,18 @@ class GitHubTestHarness private constructor(
         file.writeText("Title: $title\n")
         // Use the title as the commit ID if ID wasn't provided
         val safeId = id
-        val commitId = if (safeId != null) {
-            safeId
-        } else {
-            require(!title.contains("\\s+".toRegex())) {
-                "ID wasn't provided and title '$title' can\'t be used as it contains whitespace."
+        val message = if (safeId == null || safeId.isNotBlank()) {
+            val commitId = safeId ?: title.also {
+                require(!it.contains("\\s+".toRegex())) {
+                    "ID wasn't provided and title '$it' can\'t be used as it contains whitespace."
+                }
             }
+            // Commit ID was non-blank (or null, in which case we fall back to the title)
+            localGit.appendCommitId(title, commitId)
+        } else {
+            // Commit ID was explicitly blank, do not add one
             title
         }
-        val message = localGit.appendCommitId(title, commitId)
         val safeWillPassVerification = willPassVerification
         return localGit
             .add(file.name)
