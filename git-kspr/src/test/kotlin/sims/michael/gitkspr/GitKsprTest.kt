@@ -641,6 +641,42 @@ interface GitKsprTest {
         }
     }
 
+    @Test
+    fun `commit ID is appended successfully`() {
+        // assert the absence of a bug that used to occur with commits that had message bodies... the subject and footer
+        // lines would be indented, which was invalid and would cause the commit(s) to effectively have no ID
+        // if this test doesn't throw, then we're good
+        withTestSetup {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "Bump EnricoMi/publish-unit-test-result-action from 2.1.0 to 2.11.0"
+                            body = """
+                                |Bumps [EnricoMi/publish-unit-test-result-action](https://github.com/enricomi/publish-unit-test-result-action) from 2.1.0 to 2.11.0.
+                                |- [Release notes](https://github.com/enricomi/publish-unit-test-result-action/releases)
+                                |- [Commits](https://github.com/enricomi/publish-unit-test-result-action/compare/713caf1dd6f1c273144546ed2d79ca24a01f4623...ca89ad036b5fcd524c1017287fb01b5139908408)
+                                |
+                                |---
+                                |updated-dependencies:
+                                |- dependency-name: EnricoMi/publish-unit-test-result-action
+                                |  dependency-type: direct:production
+                                |  update-type: version-update:semver-minor
+                                |...
+                                |
+                                |Signed-off-by: dependabot[bot] <support@github.com>
+                            """.trimMargin()
+                            id = ""
+                            localRefs += "main"
+                        }
+                    }
+                },
+            )
+
+            gitKspr.push()
+        }
+    }
+
     @TestFactory
     fun `push adds commit IDs`(): List<DynamicTest> {
         data class Test(val name: String, val expected: List<String>, val testCaseData: TestCaseData)

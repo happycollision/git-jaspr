@@ -27,6 +27,7 @@ interface Commit : DataClassFragment {
     val localRefs: SetPropertyNotNull<StringPropertyNotNull>
     val remoteRefs: SetPropertyNotNull<StringPropertyNotNull>
     val title: StringPropertyNotNull
+    val body: StringPropertyNotNull
     val prTitle: StringPropertyNotNull
     val prStartTitle: StringPropertyNotNull
     val prEndTitle: StringPropertyNotNull

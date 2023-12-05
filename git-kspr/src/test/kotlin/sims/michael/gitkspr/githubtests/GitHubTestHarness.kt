@@ -286,6 +286,11 @@ class GitHubTestHarness private constructor(
     private fun CommitData.create(): Commit {
         val file = localRepo.resolve("${title.sanitize()}.txt")
         file.writeText("Title: $title\n")
+        val titleAndBody = if (body.isNotEmpty()) {
+            title.trim() + "\n\n" + body.trim() + "\n"
+        } else {
+            title
+        }
         // Use the title as the commit ID if ID wasn't provided
         val safeId = id
         val message = if (safeId == null || safeId.isNotBlank()) {
@@ -298,7 +303,7 @@ class GitHubTestHarness private constructor(
             localGit.appendCommitId(title, commitId)
         } else {
             // Commit ID was explicitly blank, do not add one
-            title
+            titleAndBody
         }
         val safeWillPassVerification = willPassVerification
         return localGit

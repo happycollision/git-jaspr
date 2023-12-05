@@ -200,13 +200,10 @@ class JGitClient(val workingDirectory: File, val remoteBranchPrefix: String = DE
         Git.cloneRepository().setDirectory(workingDirectory).setURI(uri).call().close()
     }
 
-    fun appendCommitId(fullMessage: String, commitId: String) =
-        """
-            $fullMessage
-
-            $COMMIT_ID_LABEL: $commitId
-
-        """.trimIndent()
+    fun appendCommitId(fullMessage: String, commitId: String): String {
+        val fullMessageTrimmed = fullMessage.trim()
+        return "$fullMessageTrimmed\n\n$COMMIT_ID_LABEL: $commitId\n"
+    }
 
     fun cherryPick(commit: Commit): Commit {
         logger.trace("cherryPick {}", commit)
