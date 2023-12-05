@@ -180,6 +180,17 @@ class GitKspr(
         }
     }
 
+    fun installCommitIdHook() {
+        logger.trace("installCommitIdHook")
+        val hooksDir = config.workingDirectory.resolve(".git").resolve("hooks")
+        require(hooksDir.isDirectory)
+        val hook = hooksDir.resolve(COMMIT_MSG_HOOK)
+        val source = checkNotNull(javaClass.getResourceAsStream("/$COMMIT_MSG_HOOK"))
+        logger.info("Installing/overwriting {} to {} and setting the executable bit", COMMIT_MSG_HOOK, hook)
+        source.use { inStream -> hook.outputStream().use { outStream -> inStream.copyTo(outStream) } }
+        check(hook.setExecutable(true)) { "Failed to set the executable bit on $hook" }
+    }
+
     class SinglePullRequestPerCommitConstraintViolation(override val message: String) : RuntimeException(message)
 
     private fun checkSinglePullRequestPerCommit(pullRequests: List<PullRequest>): List<PullRequest> {
@@ -229,6 +240,8 @@ class GitKspr(
             logger.trace("No commits are missing IDs")
             return commits
         } else {
+            logger.warn("Some commits in your local stack are missing commit IDs and are being amended to add them.")
+            logger.warn("Consider running ${InstallCommitIdHook().commandName} to avoid this in the future.")
             val missing = commits.slice(indexOfFirstCommitMissingId until commits.size)
             val refName = "${missing.first().hash}^"
             gitClient.reset(refName) // TODO need a test that we're resetting and not doing this in detached HEAD
@@ -297,6 +310,7 @@ class GitKspr(
             | │ │ │ │ │
 
         """.trimMargin()
+        private const val COMMIT_MSG_HOOK = "commit-msg"
     }
 }
 

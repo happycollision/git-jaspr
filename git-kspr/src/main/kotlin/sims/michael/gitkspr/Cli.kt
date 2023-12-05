@@ -65,6 +65,12 @@ class TestLogging : GitKsprCommand() {
     }
 }
 
+class InstallCommitIdHook : GitKsprCommand() {
+    override suspend fun doRun() {
+        appWiring.gitKspr.installCommitIdHook()
+    }
+}
+
 class NoOp : GitKsprCommand() {
     private val logger = LoggerFactory.getLogger(TestLogging::class.java)
 
@@ -370,6 +376,7 @@ object Cli {
                     Merge(),
                     TestLogging(),
                     NoOp(),
+                    InstallCommitIdHook(),
                 ),
             )
             .main(args)
