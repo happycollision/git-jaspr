@@ -276,7 +276,9 @@ object ExecuteCli { // Wrapper object so we can have a logger with a sensible na
         invokeLocation: File? = null,
     ): String {
         val homeDir = scratchDir.homeDir()
-        check(homeDir.mkdir())
+        check(homeDir.exists() || homeDir.mkdir()) {
+            "Failed to create homeDir ${homeDir.toStringWithClickableURI()}"
+        }
         val defaults = mapOf(
             "github-token" to "REQUIRED_BY_CLI_BUT_UNUSED_IN_THESE_TESTS",
             "logs-directory" to scratchDir.logsDir().absolutePath,
