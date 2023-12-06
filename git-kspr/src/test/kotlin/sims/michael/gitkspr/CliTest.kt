@@ -274,6 +274,7 @@ object ExecuteCli { // Wrapper object so we can have a logger with a sensible na
         repoDirConfig: Map<String, String> = emptyMap(),
         strings: List<String>,
         invokeLocation: File? = null,
+        javaOptions: List<String> = emptyList(),
     ): String {
         val homeDir = scratchDir.homeDir()
         check(homeDir.exists() || homeDir.mkdir()) {
@@ -290,7 +291,7 @@ object ExecuteCli { // Wrapper object so we can have a logger with a sensible na
         repoDir.initGitDirWithRemoteUri(remoteUri, remoteName)
         repoDir.writeConfigFile(repoDirConfig)
 
-        val command = getInvokeCliList(invokeLocation ?: repoDir) + strings + extraCliArgs
+        val command = getInvokeCliList(invokeLocation ?: repoDir, javaOptions) + strings + extraCliArgs
         logger.info("Executing command {}", command)
         val processResult = ProcessExecutor()
             .environment("HOME", homeDir.absolutePath)
@@ -322,7 +323,7 @@ private fun File.initGitDirWithRemoteUri(uriString: String, remoteName: String =
     }
 }
 
-private fun getInvokeCliList(workingDir: File = findNearestGitDir()): List<String> {
+private fun getInvokeCliList(workingDir: File = findNearestGitDir(), javaOptions: List<String> = emptyList()): List<String> {
     // Use the same JDK we were invoked with, if we can determine it. Else fall back to whatever "java" is in our $PATH
     val javaBinary = System.getProperty("java.home")
         ?.let { javaHome -> "$javaHome/bin/java" }
@@ -333,7 +334,7 @@ private fun getInvokeCliList(workingDir: File = findNearestGitDir()): List<Strin
         "-D${WORKING_DIR_PROPERTY_NAME}=${workingDir.absolutePath}",
         "-cp",
         System.getProperty("java.class.path"),
-    ) + Cli::class.java.name
+    ) + javaOptions + Cli::class.java.name
 }
 
 private fun findNearestGitDir() = File(".").findNearestGitDir()
