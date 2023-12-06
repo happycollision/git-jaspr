@@ -50,14 +50,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - name: Setup Java (Graal VM)
+        uses: renatoathaydes/setup-java-sdkman@2.1.1
         with:
-          distribution: 'zulu'
-          java-version: |
-            11
-          java-package: jdk
-          architecture: x64
+          # noinspection YAMLIncompatibleTypes
+          java-version: "21.0.1-graalce"
+
+      - name: Setup Java (11)
+        uses: renatoathaydes/setup-java-sdkman@2.1.1
+        with:
+          # noinspection YAMLIncompatibleTypes
+          java-version: "11.0.21-zulu"
 
       - name: Setup Gradle
         uses: gradle/gradle-build-action@87a9a15658c426a54dd469d4fc7dc1a73ca9d4a6 # v2.10.0
