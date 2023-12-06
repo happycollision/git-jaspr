@@ -257,7 +257,7 @@ private fun getEffectiveConfigFromCli(
         extraCliArgs,
         homeDirConfig,
         repoDirConfig,
-        listOf("status", "--show-config"),
+        listOf("status", "--show-config", remoteName),
         invokeLocation,
     ),
 )
@@ -290,7 +290,7 @@ object ExecuteCli { // Wrapper object so we can have a logger with a sensible na
         repoDir.initGitDirWithRemoteUri(remoteUri, remoteName)
         repoDir.writeConfigFile(repoDirConfig)
 
-        val command = getInvokeCliList(invokeLocation ?: repoDir) + strings + extraCliArgs + remoteName
+        val command = getInvokeCliList(invokeLocation ?: repoDir) + strings + extraCliArgs
         logger.info("Executing command {}", command)
         val processResult = ProcessExecutor()
             .environment("HOME", homeDir.absolutePath)
