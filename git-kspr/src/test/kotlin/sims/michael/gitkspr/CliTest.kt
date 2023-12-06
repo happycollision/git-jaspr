@@ -12,6 +12,7 @@ import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.api.assertThrows
 import org.slf4j.LoggerFactory
 import org.zeroturnaround.exec.ProcessExecutor
+import sims.michael.gitkspr.ExecuteCli.executeCli
 import sims.michael.gitkspr.RemoteRefEncoding.DEFAULT_REMOTE_BRANCH_PREFIX
 import sims.michael.gitkspr.testing.toStringWithClickableURI
 import java.io.File
@@ -261,41 +262,47 @@ private fun getEffectiveConfigFromCli(
     ),
 )
 
-private fun executeCli(
-    scratchDir: File,
-    remoteUri: String,
-    remoteName: String,
-    extraCliArgs: List<String> = emptyList(),
-    homeDirConfig: Map<String, String> = emptyMap(),
-    repoDirConfig: Map<String, String> = emptyMap(),
-    strings: List<String>,
-    invokeLocation: File? = null,
-): String {
-    val homeDir = scratchDir.homeDir()
-    check(homeDir.mkdir())
-    val defaults = mapOf(
-        "github-token" to "REQUIRED_BY_CLI_BUT_UNUSED_IN_THESE_TESTS",
-        "logs-directory" to scratchDir.logsDir().absolutePath,
-    )
-    homeDir.writeConfigFile(defaults + homeDirConfig)
+object ExecuteCli { // Wrapper object so we can have a logger with a sensible name
+    private val logger = LoggerFactory.getLogger(ExecuteCli::class.java)
 
-    val repoDir = scratchDir.repoDir()
+    fun executeCli(
+        scratchDir: File,
+        remoteUri: String,
+        remoteName: String,
+        extraCliArgs: List<String> = emptyList(),
+        homeDirConfig: Map<String, String> = emptyMap(),
+        repoDirConfig: Map<String, String> = emptyMap(),
+        strings: List<String>,
+        invokeLocation: File? = null,
+    ): String {
+        val homeDir = scratchDir.homeDir()
+        check(homeDir.mkdir())
+        val defaults = mapOf(
+            "github-token" to "REQUIRED_BY_CLI_BUT_UNUSED_IN_THESE_TESTS",
+            "logs-directory" to scratchDir.logsDir().absolutePath,
+        )
+        homeDir.writeConfigFile(defaults + homeDirConfig)
 
-    repoDir.initGitDirWithRemoteUri(remoteUri, remoteName)
-    repoDir.writeConfigFile(repoDirConfig)
+        val repoDir = scratchDir.repoDir()
 
-    val processResult = ProcessExecutor()
-        .environment("HOME", homeDir.absolutePath)
-        .command(getInvokeCliList(invokeLocation ?: repoDir) + strings + extraCliArgs + remoteName)
-        .readOutput(true)
-        .execute()
+        repoDir.initGitDirWithRemoteUri(remoteUri, remoteName)
+        repoDir.writeConfigFile(repoDirConfig)
 
-    val outputString = processResult.outputString()
-    check(processResult.exitValue == 0) {
-        "Process exit value was ${processResult.exitValue}, output was $outputString"
+        val command = getInvokeCliList(invokeLocation ?: repoDir) + strings + extraCliArgs + remoteName
+        logger.info("Executing command {}", command)
+        val processResult = ProcessExecutor()
+            .environment("HOME", homeDir.absolutePath)
+            .command(command)
+            .readOutput(true)
+            .execute()
+
+        val outputString = processResult.outputString()
+        check(processResult.exitValue == 0) {
+            "Process exit value was ${processResult.exitValue}, output was $outputString"
+        }
+
+        return outputString.orEmpty()
     }
-
-    return outputString.orEmpty()
 }
 
 private fun File.writeConfigFile(config: Map<String, String>) {
