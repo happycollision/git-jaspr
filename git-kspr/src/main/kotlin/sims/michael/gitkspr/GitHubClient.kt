@@ -70,8 +70,16 @@ class GitHubClientImpl(
                         pr.baseRefName,
                         pr.title,
                         pr.body,
-                        state?.let { it == StatusState.SUCCESS },
-                        pr.reviewDecision == PullRequestReviewDecision.APPROVED,
+                        when (state) {
+                            StatusState.SUCCESS -> true
+                            StatusState.FAILURE, StatusState.ERROR -> false
+                            else -> null
+                        },
+                        when (pr.reviewDecision) {
+                            PullRequestReviewDecision.APPROVED -> true
+                            PullRequestReviewDecision.CHANGES_REQUESTED -> false
+                            else -> null
+                        },
                         pr.conclusionStates,
                         pr.permalink,
                     )
@@ -103,6 +111,7 @@ class GitHubClientImpl(
                 // TODO looks like duplication but isn't, strictly. Still, this could be cleaned up by creating a facade
                 //   wrapper interface
                 val commitId = getCommitIdFromRemoteRef(pr.headRefName, remoteBranchPrefix)
+                val state = pr.commits.nodes?.singleOrNull()?.commit?.statusCheckRollup?.state
                 PullRequest(
                     pr.id,
                     commitId,
@@ -111,8 +120,16 @@ class GitHubClientImpl(
                     pr.baseRefName,
                     pr.title,
                     pr.body,
-                    pr.commits.nodes?.singleOrNull()?.commit?.statusCheckRollup?.state == StatusState.SUCCESS,
-                    pr.reviewDecision == PullRequestReviewDecision.APPROVED,
+                    when (state) {
+                        StatusState.SUCCESS -> true
+                        StatusState.FAILURE, StatusState.ERROR -> false
+                        else -> null
+                    },
+                    when (pr.reviewDecision) {
+                        PullRequestReviewDecision.APPROVED -> true
+                        PullRequestReviewDecision.CHANGES_REQUESTED -> false
+                        else -> null
+                    },
                     pr.conclusionStates,
                     pr.permalink,
                 )
@@ -151,6 +168,7 @@ class GitHubClientImpl(
         //  duped since CreatePullRequest.Result is different from GetPullRequests.Result even though they both
         //  contain a PullRequest type
         val commitId = getCommitIdFromRemoteRef(pr.headRefName, remoteBranchPrefix)
+        val state = pr.commits.nodes?.singleOrNull()?.commit?.statusCheckRollup?.state
         return PullRequest(
             pr.id,
             commitId,
@@ -159,8 +177,16 @@ class GitHubClientImpl(
             pr.baseRefName,
             pr.title,
             pr.body,
-            pr.commits.nodes?.singleOrNull()?.commit?.statusCheckRollup?.state == StatusState.SUCCESS,
-            pr.reviewDecision == PullRequestReviewDecision.APPROVED,
+            when (state) {
+                StatusState.SUCCESS -> true
+                StatusState.FAILURE, StatusState.ERROR -> false
+                else -> null
+            },
+            when (pr.reviewDecision) {
+                PullRequestReviewDecision.APPROVED -> true
+                PullRequestReviewDecision.CHANGES_REQUESTED -> false
+                else -> null
+            },
             permalink = pr.permalink,
         )
     }
