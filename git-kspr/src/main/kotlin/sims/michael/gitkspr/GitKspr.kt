@@ -104,7 +104,7 @@ class GitKspr(
         gitClient.fetch(remoteName)
 
         val stack = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
-        if (stack.isEmpty()) return "Stack is empty."
+        if (stack.isEmpty()) return "Stack is empty.\n"
 
         val statuses = getRemoteCommitStatuses(stack)
         val numCommitsBehind = gitClient.logRange(stack.last().hash, "$remoteName/${refSpec.remoteRef}").size

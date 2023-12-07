@@ -99,7 +99,7 @@ interface GitKsprTest {
                 },
             )
 
-            assertEquals("Stack is empty.", getAndPrintStatusString())
+            assertEquals("Stack is empty.\n", getAndPrintStatusString())
         }
     }
 
