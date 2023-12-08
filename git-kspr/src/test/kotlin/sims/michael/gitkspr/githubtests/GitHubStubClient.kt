@@ -20,7 +20,12 @@ class GitHubStubClient(private val remoteBranchPrefix: String, private val local
         logger.trace("getPullRequests")
         return synchronized(prs) {
             autoClosePrs()
-            prs.openPullRequests()
+            if (commitFilter == null) {
+                prs.openPullRequests()
+            } else {
+                val ids = commitFilter.map { commit -> commit.id }
+                prs.openPullRequests().filter { pr -> pr.commitId in ids }
+            }
         }
     }
 
@@ -31,6 +36,7 @@ class GitHubStubClient(private val remoteBranchPrefix: String, private val local
         logger.trace("getPullRequestsById")
         return synchronized(prs) {
             autoClosePrs()
+            // TODO this looks suspect, if commitFilter is null we return nothing?
             prs.openPullRequests().filter { it.commitId in commitFilter.orEmpty() }
         }
     }
