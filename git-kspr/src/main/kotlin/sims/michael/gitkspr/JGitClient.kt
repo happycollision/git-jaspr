@@ -10,6 +10,8 @@ import org.eclipse.jgit.revwalk.RevCommit
 import org.eclipse.jgit.transport.PushResult
 import org.eclipse.jgit.transport.RemoteRefUpdate.Status
 import org.slf4j.LoggerFactory
+import sims.michael.gitkspr.CommitFooters.addFooters
+import sims.michael.gitkspr.CommitFooters.getFooters
 import sims.michael.gitkspr.JGitClient.CheckoutMode.*
 import sims.michael.gitkspr.RemoteRefEncoding.DEFAULT_REMOTE_BRANCH_PREFIX
 import sims.michael.gitkspr.RemoteRefEncoding.getCommitIdFromRemoteRef
@@ -180,10 +182,7 @@ class JGitClient(val workingDirectory: File, val remoteBranchPrefix: String = DE
 
     fun commit(message: String, footerLines: Map<String, String> = emptyMap()) = useGit { git ->
         val committer = PersonIdent(PersonIdent(git.repository), Instant.now())
-        val lines = message.split("\n").filter(String::isNotBlank) + footerLines.map { (k, v) -> "$k: $v" }
-        val linesWithSubjectBodySeparator = listOf(lines.first()) + listOf("") + lines.drop(1)
-        val messageWithFooter = linesWithSubjectBodySeparator.joinToString(separator = "\n")
-        git.commit().setMessage(messageWithFooter).setCommitter(committer).call().toCommit(git)
+        git.commit().setMessage(addFooters(message, footerLines)).setCommitter(committer).call().toCommit(git)
     }
 
     fun setCommitId(commitId: String) {
@@ -191,18 +190,17 @@ class JGitClient(val workingDirectory: File, val remoteBranchPrefix: String = DE
         useGit { git ->
             val r = git.repository
             val head = r.parseCommit(r.findRef(HEAD).objectId)
-            require(head.getFooterLines(COMMIT_ID_LABEL).isEmpty())
-            git.commit().setAmend(true).setMessage(appendCommitId(head.fullMessage, commitId)).call()
+            require(!getFooters(head.fullMessage).containsKey(COMMIT_ID_LABEL))
+            git
+                .commit()
+                .setAmend(true)
+                .setMessage(addFooters(head.fullMessage, mapOf(COMMIT_ID_LABEL to commitId)))
+                .call()
         }
     }
 
     fun clone(uri: String) = apply {
         Git.cloneRepository().setDirectory(workingDirectory).setURI(uri).call().close()
-    }
-
-    fun appendCommitId(fullMessage: String, commitId: String): String {
-        val fullMessageTrimmed = fullMessage.trim()
-        return "$fullMessageTrimmed\n\n$COMMIT_ID_LABEL: $commitId\n"
     }
 
     fun cherryPick(commit: Commit): Commit {
@@ -254,7 +252,7 @@ class JGitClient(val workingDirectory: File, val remoteBranchPrefix: String = DE
             objectReader.abbreviate(id).name(),
             shortMessage,
             fullMessage,
-            getFooterLines(COMMIT_ID_LABEL).firstOrNull(),
+            getFooters(fullMessage)[COMMIT_ID_LABEL],
             Ident(committerIdent.name, committerIdent.emailAddress),
             ZonedDateTime.ofInstant(committerIdent.`when`.toInstant(), ZoneId.systemDefault()),
             ZonedDateTime.ofInstant(authorIdent.`when`.toInstant(), ZoneId.systemDefault()),

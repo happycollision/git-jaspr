@@ -288,34 +288,31 @@ class GitHubTestHarness private constructor(
     private fun CommitData.create(): Commit {
         val file = localRepo.resolve("${title.sanitize()}.txt")
         file.writeText("Title: $title\n")
-        val titleAndBody = if (body.isNotEmpty()) {
-            title.trim() + "\n\n" + body.trim() + "\n"
-        } else {
-            title
-        }
-        // Use the title as the commit ID if ID wasn't provided
         val safeId = id
-        val message = if (safeId == null || safeId.isNotBlank()) {
-            val commitId = safeId ?: title.also {
-                require(!it.contains("\\s+".toRegex())) {
-                    "ID wasn't provided and title '$it' can\'t be used as it contains whitespace."
-                }
-            }
-            // Commit ID was non-blank (or null, in which case we fall back to the title)
-            localGit.appendCommitId(title, commitId)
-        } else {
-            // Commit ID was explicitly blank, do not add one
-            titleAndBody
-        }
         val safeWillPassVerification = willPassVerification
         return localGit
             .add(file.name)
             .commit(
-                message,
-                if (safeWillPassVerification != null) {
-                    mapOf("verify-result" to if (safeWillPassVerification) "0" else "13")
+                message = if (body.isNotEmpty()) {
+                    title.trim() + "\n\n" + body.trim() + "\n"
                 } else {
-                    emptyMap()
+                    title
+                },
+                footerLines = buildMap {
+                    putAll(footerLines)
+                    if (safeId == null || safeId.isNotBlank()) {
+                        put(
+                            COMMIT_ID_LABEL,
+                            safeId ?: title.also {
+                                require(!it.contains("\\s+".toRegex())) {
+                                    "ID wasn't provided and title '$it' can\'t be used as it contains whitespace."
+                                }
+                            },
+                        )
+                    }
+                    if (safeWillPassVerification != null) {
+                        put("verify-result", if (safeWillPassVerification) "0" else "13")
+                    }
                 },
             )
     }
