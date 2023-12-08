@@ -1033,6 +1033,174 @@ interface GitKsprTest {
     }
     //endregion
 
+    // region pr body tests
+    @Test
+    fun `pr descriptions basic stack`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit { title = "1" }
+                        commit { title = "2" }
+                        commit {
+                            title = "3"
+                            body = "This is a body"
+                            footerLines["footer-line-test"] = "hi" // Will be stripped out in the description
+                            localRefs += "main"
+                        }
+                    }
+                },
+            )
+            push()
+
+            assertEquals(
+                listOf(
+                    """
+1
+
+**Stack**:
+- #0 ⬅
+
+                    """.trimIndent().toPrBodyString(),
+                    """
+2
+
+**Stack**:
+- #1 ⬅
+- #0
+
+                    """.trimIndent().toPrBodyString(),
+                    """
+3
+
+This is a body
+
+**Stack**:
+- #2 ⬅
+- #1
+- #0
+
+                    """.trimIndent().toPrBodyString(),
+                ),
+                gitHub.getPullRequests().map(PullRequest::body),
+            )
+        }
+    }
+
+    @Test
+    fun `pr descriptions reordered and with history links`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit { title = "A" }
+                        commit { title = "B" }
+                        commit { title = "C" }
+                        commit { title = "D" }
+                        commit {
+                            title = "E"
+                            localRefs += "main"
+                        }
+                    }
+                },
+            )
+
+            push()
+
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit { title = "E" }
+                        commit { title = "C" }
+                        commit { title = "one" }
+                        commit { title = "B" }
+                        commit { title = "A" }
+                        commit {
+                            title = "two"
+                            localRefs += "main"
+                        }
+                    }
+                },
+            )
+
+            push()
+
+            assertEquals(
+                listOf(
+                    """
+A
+
+**Stack**:
+- #0 ⬅
+- #1
+- #5
+- #2
+- #4
+
+                    """.trimIndent().toPrBodyString(),
+                    """
+B
+
+**Stack**:
+- #1 ⬅
+- #5
+- #2
+- #4
+
+                    """.trimIndent().toPrBodyString(),
+                    """
+C
+
+**Stack**:
+- #2 ⬅
+- #4
+
+                    """.trimIndent().toPrBodyString(),
+                    """
+D
+
+**Stack**:
+- #3 ⬅
+- #2
+- #1
+- #0
+
+                    """.trimIndent().toPrBodyString(),
+                    """
+E
+
+**Stack**:
+- #4 ⬅
+
+                    """.trimIndent().toPrBodyString(),
+                    """
+one
+
+**Stack**:
+- #5 ⬅
+- #2
+- #4
+
+                    """.trimIndent().toPrBodyString(),
+                    """
+two
+
+**Stack**:
+- #6 ⬅
+- #0
+- #1
+- #5
+- #2
+- #4
+
+                    """.trimIndent().toPrBodyString(),
+                ),
+                gitHub.getPullRequests().map(PullRequest::body),
+            )
+        }
+    }
+    //endregion
+
     //region merge tests
     @Test
     fun `merge happy path`() {
@@ -1482,3 +1650,8 @@ fun String.toStatusString(actual: String): String {
 
     """.trimMargin()
 }
+
+// Much like toStatusString above, this repeats the PR body footer. See notes there for the rationale.
+fun String.toPrBodyString(): String = "${this}\n" +
+    "⚠️ *Part of a stack created by [kspr](https://github.com/MichaelSims/git-kspr). " +
+    "Do not merge manually using the UI - doing so may have unexpected results.*\n"

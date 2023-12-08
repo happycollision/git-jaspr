@@ -1,6 +1,7 @@
 package sims.michael.gitkspr
 
 import org.slf4j.LoggerFactory
+import sims.michael.gitkspr.CommitFooters.trimFooters
 import sims.michael.gitkspr.GitKspr.StatusBits.Status
 import sims.michael.gitkspr.GitKspr.StatusBits.Status.*
 import sims.michael.gitkspr.RemoteRefEncoding.REV_NUM_DELIMITER
@@ -58,7 +59,7 @@ class GitKspr(
                     // commit is the remote ref name (i.e. kspr/<commit-id>) of the previous commit in the stack
                     baseRefName = prevCommit?.toRemoteRefName() ?: refSpec.remoteRef,
                     title = currentCommit.shortMessage,
-                    body = currentCommit.fullMessage,
+                    body = buildPullRequestBody(currentCommit.fullMessage),
                     checksPass = existingPr?.checksPass,
                     approved = existingPr?.approved,
                     checkConclusionStates = existingPr?.checkConclusionStates.orEmpty(),
@@ -77,6 +78,58 @@ class GitKspr(
             }
         }
         logger.info("Updated {} pull request(s)", prsToMutate.size)
+
+        // Update pull request descriptions (has to be done in a second pass because we don't have the GH-assigned PR
+        // numbers until the first creation pass)
+        updateDescriptions(stack, prsToMutate)
+    }
+
+    private suspend fun updateDescriptions(stack: List<Commit>, prsToMutate: List<PullRequest>) {
+        val stackById = stack.associateBy(Commit::id)
+        val prsById = ghClient.getPullRequests(stack).associateBy { checkNotNull(it.commitId) }
+        val stackPrsReordered = stack.fold(emptyList<PullRequest>()) { prs, commit ->
+            prs + checkNotNull(prsById[checkNotNull(commit.id)])
+        }
+        val prsNeedingBodyUpdate = stackPrsReordered
+            .withIndex()
+            .map { (i, existingPr) ->
+                val commit = checkNotNull(stackById[existingPr.commitId]) {
+                    "Couldn't find commit for PR with commitId ${existingPr.commitId}"
+                }
+                val newBody = buildPullRequestBody(
+                    fullMessage = commit.fullMessage,
+                    pullRequests = stackPrsReordered.slice(0..i).reversed(),
+                )
+                existingPr.copy(body = newBody)
+            }
+        logger.debug("{}", stack)
+        for (pr in prsNeedingBodyUpdate) {
+            ghClient.updatePullRequest(pr)
+        }
+        logger.info("Updated descriptions for {} pull request(s)", prsToMutate.size)
+    }
+
+    private fun buildPullRequestBody(fullMessage: String, pullRequests: List<PullRequest> = emptyList()): String {
+        return buildString {
+            append(trimFooters(fullMessage))
+            appendLine()
+            if (pullRequests.isNotEmpty()) {
+                appendLine("**Stack**:")
+                var first = true
+                for (pr in pullRequests) {
+                    append("- #${pr.number}")
+                    if (first) {
+                        append(" ⬅")
+                        first = false
+                    }
+                    appendLine()
+                }
+                appendLine()
+            }
+
+            append("⚠\uFE0F *Part of a stack created by [kspr](https://github.com/MichaelSims/git-kspr). ")
+            appendLine("Do not merge manually using the UI - doing so may have unexpected results.*")
+        }
     }
 
     suspend fun getRemoteCommitStatuses(stack: List<Commit>): List<RemoteCommitStatus> {
@@ -287,10 +340,10 @@ class GitKspr(
         logger.trace("updateBaseRefForReorderedPrsIfAny")
 
         val commitMap = commitStack.windowedPairs().associateBy { (_, commit) -> checkNotNull(commit.id) }
-        val updatedPullRequests = map { pr ->
+        val updatedPullRequests = mapNotNull { pr ->
             val commitPair = commitMap[checkNotNull(pr.commitId)]
             if (commitPair == null) {
-                pr
+                null
             } else {
                 val (prevCommit, _) = commitPair
                 val newBaseRef = prevCommit?.toRemoteRefName() ?: remoteRef
