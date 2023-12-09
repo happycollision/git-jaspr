@@ -1059,6 +1059,8 @@ interface GitJasprTest {
 1
 
 **Stack**:
+- #2
+- #1
 - #0 ⬅
 
                     """.trimIndent().toPrBodyString(),
@@ -1066,6 +1068,7 @@ interface GitJasprTest {
 2
 
 **Stack**:
+- #2
 - #1 ⬅
 - #0
 
@@ -1131,6 +1134,7 @@ This is a body
 A
 
 **Stack**:
+- #6
 - #0 ⬅
 - #1
 - #5
@@ -1142,6 +1146,8 @@ A
 B
 
 **Stack**:
+- #6
+- #0
 - #1 ⬅
 - #5
 - #2
@@ -1152,6 +1158,10 @@ B
 C
 
 **Stack**:
+- #6
+- #0
+- #1
+- #5
 - #2 ⬅
 - #4
 
@@ -1160,6 +1170,7 @@ C
 D
 
 **Stack**:
+- #4
 - #3 ⬅
 - #2
 - #1
@@ -1170,6 +1181,11 @@ D
 E
 
 **Stack**:
+- #6
+- #0
+- #1
+- #5
+- #2
 - #4 ⬅
 
                     """.trimIndent().toPrBodyString(),
@@ -1177,6 +1193,9 @@ E
 one
 
 **Stack**:
+- #6
+- #0
+- #1
 - #5 ⬅
 - #2
 - #4

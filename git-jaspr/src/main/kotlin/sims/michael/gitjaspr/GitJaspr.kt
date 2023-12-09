@@ -91,14 +91,14 @@ class GitJaspr(
             prs + checkNotNull(prsById[checkNotNull(commit.id)])
         }
         val prsNeedingBodyUpdate = stackPrsReordered
-            .withIndex()
-            .map { (i, existingPr) ->
+            .map { existingPr ->
                 val commit = checkNotNull(stackById[existingPr.commitId]) {
                     "Couldn't find commit for PR with commitId ${existingPr.commitId}"
                 }
                 val newBody = buildPullRequestBody(
                     fullMessage = commit.fullMessage,
-                    pullRequests = stackPrsReordered.slice(0..i).reversed(),
+                    pullRequests = stackPrsReordered.reversed(),
+                    existingPr.commitId,
                 )
                 existingPr.copy(body = newBody)
             }
@@ -109,18 +109,20 @@ class GitJaspr(
         logger.info("Updated descriptions for {} pull request(s)", prsToMutate.size)
     }
 
-    private fun buildPullRequestBody(fullMessage: String, pullRequests: List<PullRequest> = emptyList()): String {
+    private fun buildPullRequestBody(
+        fullMessage: String,
+        pullRequests: List<PullRequest> = emptyList(),
+        currentCommitId: String? = null,
+    ): String {
         return buildString {
             append(trimFooters(fullMessage))
             appendLine()
             if (pullRequests.isNotEmpty()) {
                 appendLine("**Stack**:")
-                var first = true
                 for (pr in pullRequests) {
                     append("- #${pr.number}")
-                    if (first) {
+                    if (pr.commitId == currentCommitId) {
                         append(" ⬅")
-                        first = false
                     }
                     appendLine()
                 }
