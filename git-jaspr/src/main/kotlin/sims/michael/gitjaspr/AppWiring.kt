@@ -25,8 +25,10 @@ class DefaultAppWiring(
 
     private val gitHubClientWiring = GitHubClientWiring(githubToken, config.gitHubInfo, config.remoteBranchPrefix)
 
+    @Suppress("unused")
     val graphQLClient: GraphQLClient<*> get() = gitHubClientWiring.graphQLClient
 
+    @Suppress("MemberVisibilityCanBePrivate")
     val gitHubClient: GitHubClient get() = gitHubClientWiring.gitHubClient
 
     override val json: Json = Json {

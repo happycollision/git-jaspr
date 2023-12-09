@@ -400,6 +400,7 @@ class GitJaspr(
     ) {
         fun toList(): List<Status> = listOf(commitIsPushed, pullRequestExists, checksPass, approved)
 
+        @Suppress("unused")
         enum class Status(val emoji: String) {
             SUCCESS("✅"), FAIL("❌"), PENDING("⌛"), UNKNOWN("❓"), EMPTY("➖"), WARNING("⚠️")
         }
