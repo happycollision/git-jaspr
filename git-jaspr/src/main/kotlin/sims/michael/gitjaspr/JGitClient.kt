@@ -38,6 +38,17 @@ class JGitClient(val workingDirectory: File, val remoteBranchPrefix: String = DE
             .toSortedMap()
     }
 
+    fun getParents(commit: Commit): List<Commit> = useGit { git ->
+        git
+            .log()
+            .add(git.repository.resolve(commit.hash))
+            .setMaxCount(1)
+            .call()
+            .single()
+            .parents
+            .map { it.toCommit(git) }
+    }
+
     fun log(revision: String, maxCount: Int = -1): List<Commit> = useGit { git ->
         git
             .log()

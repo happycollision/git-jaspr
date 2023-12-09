@@ -106,9 +106,17 @@ class GitHubTestHarness private constructor(
 
                 val existingHash = commitHashesByTitle[commitData.title]
                 val commit = if (existingHash != null) {
-                    // A commit with this title already exists... cherry-pick it
+                    // A commit with this title already exists... if it's a direct child of this commit, simply check
+                    // it out. Otherwise cherry-pick it
                     // TODO but what if this version of the commit differs? shouldn't we amend it?
-                    localGit.cherryPick(localGit.log(existingHash, maxCount = 1).single())
+                    val headHash = localGit.log("HEAD", 1).single().hash
+                    val parentHashes = localGit.getParents(localGit.log(existingHash, 1).single()).map(Commit::hash)
+                    if (headHash in parentHashes) {
+                        localGit.checkout(existingHash)
+                        localGit.log(existingHash, maxCount = 1).single()
+                    } else {
+                        localGit.cherryPick(localGit.log(existingHash, maxCount = 1).single())
+                    }
                 } else {
                     // Create a new one
                     commitData.create()
