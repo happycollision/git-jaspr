@@ -11,7 +11,9 @@ object CommitFooters {
     }
 
     fun getFooters(fullMessage: String): Map<String, String> {
-        val maybeFooterSection = fullMessage.trim().substringAfterLast("\n\n")
+        val fullMessageTrimmed = fullMessage.trim()
+        val maybeFooterSection = fullMessageTrimmed.substringAfterLast("\n\n")
+        if (maybeFooterSection == fullMessageTrimmed) return emptyMap() // Just a subject
         val maybeFooterLines = maybeFooterSection.lines().map { line -> line.split("\\s*:\\s*".toRegex()) }
         return if (maybeFooterLines.all { list -> list.size == 2 }) {
             maybeFooterLines.associate { (k, v) -> k to v }

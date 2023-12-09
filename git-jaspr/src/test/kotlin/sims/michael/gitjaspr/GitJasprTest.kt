@@ -664,7 +664,7 @@ interface GitJasprTest {
     }
 
     @Test
-    fun `commit ID is appended successfully`() {
+    fun `adding commit ID does not indent subject line`() {
         // assert the absence of a bug that used to occur with commits that had message bodies... the subject and footer
         // lines would be indented, which was invalid and would cause the commit(s) to effectively have no ID
         // if this test doesn't throw, then we're good
@@ -696,6 +696,35 @@ interface GitJasprTest {
             )
 
             push()
+        }
+    }
+
+    @Test
+    fun `commit ID is added with a blank line before it`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "Market Explorer: Remove unused code"
+                            id = ""
+                            localRefs += "main"
+                        }
+                    }
+                },
+            )
+
+            push()
+
+            assertEquals(
+                """
+Market Explorer: Remove unused code
+
+commit-id: 0
+
+                """.trimIndent(),
+                localGit.log("HEAD", maxCount = 1).single().fullMessage,
+            )
         }
     }
 

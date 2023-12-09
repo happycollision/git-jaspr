@@ -230,6 +230,24 @@ class CommitFootersTest {
     }
 
     @Test
+    fun `addFooters - subject that looks like a footer line`() {
+        val message = """
+            Market Explorer: Remove unused code
+
+        """.trimIndent()
+
+        assertEquals(
+            """
+            Market Explorer: Remove unused code
+
+            key1: value1
+
+            """.trimIndent(),
+            addFooters(message, mapOf("key1" to "value1")),
+        )
+    }
+
+    @Test
     fun `trimFooters - subject only`() {
         assertEquals(
             "This is a subject\n",
