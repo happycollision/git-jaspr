@@ -884,11 +884,11 @@ commit-id: 0
             createCommitsFrom(
                 testCase {
                     repository {
-                        commit { title = "y" }
+                        commit { title = "z" }
                         commit { title = "a" }
-                        commit { title = "b" }
+                        commit { title = "d" }
                         commit {
-                            title = "c"
+                            title = "e"
                             localRefs += "main"
                         }
                     }
@@ -898,7 +898,7 @@ commit-id: 0
             gitLogLocalAndRemote()
 
             assertEquals(
-                listOf("a", "a_01", "a_02", "b", "b_01", "b_02", "c", "c_01", "c_02", "y", "z")
+                listOf("a", "a_01", "b", "b_01", "c", "c_01", "d", "e", "z")
                     .map { name -> buildRemoteRef(name) },
                 localGit
                     .getRemoteBranches()
@@ -1331,9 +1331,7 @@ A
 **Stack**:
 - #4
 - #1
-  - [02..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_02..jaspr/main/B), [01..02](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B_02)
 - #0 ⬅
-  - [02..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_02..jaspr/main/A), [01..02](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A_02)
 
                     """.trimIndent().toPrBodyString(),
                     """
@@ -1342,9 +1340,7 @@ B
 **Stack**:
 - #4
 - #1 ⬅
-  - [02..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_02..jaspr/main/B), [01..02](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B_02)
 - #0
-  - [02..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_02..jaspr/main/A), [01..02](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A_02)
 
                     """.trimIndent().toPrBodyString(),
                     """
@@ -1362,9 +1358,7 @@ D
 **Stack**:
 - #3 ⬅
 - #1
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B)
 - #0
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A)
 
                     """.trimIndent().toPrBodyString(),
                     """
@@ -1373,9 +1367,7 @@ E
 **Stack**:
 - #4 ⬅
 - #1
-  - [02..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_02..jaspr/main/B), [01..02](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B_02)
 - #0
-  - [02..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_02..jaspr/main/A), [01..02](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A_02)
 
                     """.trimIndent().toPrBodyString(),
                 ),

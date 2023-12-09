@@ -37,7 +37,12 @@ class GitJaspr(
 
         val remoteBranches = gitClient.getRemoteBranches()
         val outOfDateBranches = stack.map { c -> c.toRefSpec() } - remoteBranches.map { b -> b.toRefSpec() }.toSet()
-        val revisionHistoryRefs = getRevisionHistoryRefs(stack, remoteBranches, remoteName)
+        val revisionHistoryRefs = getRevisionHistoryRefs(
+            stack,
+            remoteBranches,
+            remoteName,
+            outOfDateBranches.map(RefSpec::remoteRef),
+        )
         // TODO consider push with lease here
         val refSpecs = outOfDateBranches.map(RefSpec::forcePush) + revisionHistoryRefs
         gitClient.push(refSpecs)
@@ -302,6 +307,7 @@ class GitJaspr(
         stack: List<Commit>,
         branches: List<RemoteBranch>,
         remoteName: String,
+        outOfDateBranches: List<String>,
     ): List<RefSpec> {
         logger.trace("getRevisionHistoryRefs")
         val branchNames = branches.map(RemoteBranch::name).toSet()
@@ -320,6 +326,7 @@ class GitJaspr(
                     ?.let { revision ->
                         val refName = commit.toRemoteRefName()
                         RefSpec("$remoteName/$refName", "%s%s%02d".format(refName, REV_NUM_DELIMITER, revision))
+                            .takeIf { refName in outOfDateBranches }
                     }
             }
             .also { refSpecs -> logger.trace("getRevisionHistoryRefs: {}", refSpecs) }
