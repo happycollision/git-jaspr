@@ -10,6 +10,9 @@ import sims.michael.gitjaspr.githubtests.TestCaseData
 import sims.michael.gitjaspr.githubtests.generatedtestdsl.testCase
 import kotlin.test.assertEquals
 
+// TODO
+//   Some of these tests fail when ran as one of the functional test implementations due to the expected strings not
+//   being properly parameterized for things like the github URI and the auto-assigned PR numbers. Need to fix this.
 interface GitJasprTest {
 
     val logger: Logger
@@ -1136,10 +1139,14 @@ A
 **Stack**:
 - #6
 - #0 ⬅
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A)
 - #1
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B)
 - #5
 - #2
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/C_01..jaspr/main/C)
 - #4
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/E_01..jaspr/main/E)
 
                     """.trimIndent().toPrBodyString(),
                     """
@@ -1148,10 +1155,14 @@ B
 **Stack**:
 - #6
 - #0
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A)
 - #1 ⬅
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B)
 - #5
 - #2
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/C_01..jaspr/main/C)
 - #4
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/E_01..jaspr/main/E)
 
                     """.trimIndent().toPrBodyString(),
                     """
@@ -1160,10 +1171,14 @@ C
 **Stack**:
 - #6
 - #0
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A)
 - #1
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B)
 - #5
 - #2 ⬅
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/C_01..jaspr/main/C)
 - #4
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/E_01..jaspr/main/E)
 
                     """.trimIndent().toPrBodyString(),
                     """
@@ -1183,10 +1198,14 @@ E
 **Stack**:
 - #6
 - #0
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A)
 - #1
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B)
 - #5
 - #2
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/C_01..jaspr/main/C)
 - #4 ⬅
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/E_01..jaspr/main/E)
 
                     """.trimIndent().toPrBodyString(),
                     """
@@ -1195,10 +1214,14 @@ one
 **Stack**:
 - #6
 - #0
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A)
 - #1
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B)
 - #5 ⬅
 - #2
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/C_01..jaspr/main/C)
 - #4
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/E_01..jaspr/main/E)
 
                     """.trimIndent().toPrBodyString(),
                     """
@@ -1207,10 +1230,123 @@ two
 **Stack**:
 - #6 ⬅
 - #0
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A)
 - #1
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B)
 - #5
 - #2
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/C_01..jaspr/main/C)
 - #4
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/E_01..jaspr/main/E)
+
+                    """.trimIndent().toPrBodyString(),
+                ),
+                gitHub.getPullRequests().map(PullRequest::body),
+            )
+        }
+    }
+
+    @Test
+    fun `pr descriptions force pushed twice`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit { title = "A" }
+                        commit { title = "B" }
+                        commit {
+                            title = "C"
+                            localRefs += "main"
+                        }
+                    }
+                },
+            )
+
+            push()
+
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit { title = "A" }
+                        commit { title = "B" }
+                        commit {
+                            title = "D"
+                            localRefs += "main"
+                        }
+                    }
+                },
+            )
+
+            push()
+
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit { title = "A" }
+                        commit { title = "B" }
+                        commit {
+                            title = "E"
+                            localRefs += "main"
+                        }
+                    }
+                },
+            )
+
+            push()
+
+            assertEquals(
+                listOf(
+                    """
+A
+
+**Stack**:
+- #4
+- #1
+  - [02..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_02..jaspr/main/B), [01..02](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B_02)
+- #0 ⬅
+  - [02..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_02..jaspr/main/A), [01..02](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A_02)
+
+                    """.trimIndent().toPrBodyString(),
+                    """
+B
+
+**Stack**:
+- #4
+- #1 ⬅
+  - [02..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_02..jaspr/main/B), [01..02](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B_02)
+- #0
+  - [02..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_02..jaspr/main/A), [01..02](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A_02)
+
+                    """.trimIndent().toPrBodyString(),
+                    """
+C
+
+**Stack**:
+- #2 ⬅
+- #1
+- #0
+
+                    """.trimIndent().toPrBodyString(),
+                    """
+D
+
+**Stack**:
+- #3 ⬅
+- #1
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B)
+- #0
+  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A)
+
+                    """.trimIndent().toPrBodyString(),
+                    """
+E
+
+**Stack**:
+- #4 ⬅
+- #1
+  - [02..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_02..jaspr/main/B), [01..02](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B_02)
+- #0
+  - [02..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_02..jaspr/main/A), [01..02](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A_02)
 
                     """.trimIndent().toPrBodyString(),
                 ),

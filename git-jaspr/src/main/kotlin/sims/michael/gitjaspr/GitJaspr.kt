@@ -125,12 +125,36 @@ class GitJaspr(
                         append(" ⬅")
                     }
                     appendLine()
+                    appendHistoryLinksIfApplicable(pr)
                 }
                 appendLine()
             }
 
             append("⚠\uFE0F *Part of a stack created by [jaspr](https://github.com/MichaelSims/git-jaspr). ")
             appendLine("Do not merge manually using the UI - doing so may have unexpected results.*")
+        }
+    }
+
+    private fun StringBuilder.appendHistoryLinksIfApplicable(pr: PullRequest) {
+        val (host, owner, name) = config.gitHubInfo
+        val regex = "^${pr.headRefName}_(\\d+)".toRegex()
+        val branches = gitClient.getRemoteBranches().map(RemoteBranch::name)
+        val historyRefs = branches.filter { regex.matchEntire(it) != null }.sorted().reversed()
+        if (historyRefs.isNotEmpty()) {
+            append("  - ")
+            val historyPairs = listOf(pr.headRefName) + historyRefs
+            append(
+                historyPairs
+                    .windowed(2)
+                    .joinToString(", ") { (new, old) ->
+                        fun String.toRevisionDescription() = checkNotNull(regex.matchEntire(this)).groupValues[1]
+                        val oldDescription = old.toRevisionDescription()
+                        val newDescription = if (new == pr.headRefName) "Current" else new.toRevisionDescription()
+                        "[%s..%s](https://%s/%s/%s/compare/%s..%s)"
+                            .format(oldDescription, newDescription, host, owner, name, old, new)
+                    },
+            )
+            appendLine()
         }
     }
 

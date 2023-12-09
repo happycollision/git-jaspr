@@ -398,7 +398,7 @@ class GitHubTestHarness private constructor(
             val configByUserKey = properties.getConfigByUserKeyFromPropertiesFile()
 
             val githubUri = properties["$PROPERTIES_PREFIX.$PROPERTY_GITHUB_URI"]
-            val gitHubInfo = if (githubUri != null) {
+            val gitHubInfo = if (githubUri != null && !useFakeRemote) {
                 requireNotNull(extractGitHubInfoFromUri(githubUri)) { "Unable to extract GitHubInfo from $githubUri" }
             } else {
                 GitHubInfo("example.com", "SomeOwner", "SomeRepo")
