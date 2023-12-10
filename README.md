@@ -1,9 +1,40 @@
-# `git jaspr` (Just Another Stacked Pull Request)
+# Git Jaspr (Just Another Stacked Pull Request)
 
 This is a reimplementation of [git spr](https://github.com/ejoffe/spr) written in Kotlin.
 
-## TODO Add documentation 😜
+# Why
 
-## Features to add
-  - Add a tracked Revision to the commit bodies when updating them. Then use this to warn if someone is attempting to jaspr update an older version on top of a newer one. This will typically only happen when collaborating w/others on the same stack
-- Figure out if there's a way to automate publishing like git spr does
+Because I like Gerrit, and wish GitHub were Gerrit. But since it isn't, I have to use this tool instead.
+For more rationale see this [excellent blog post](https://jg.gg/2018/09/29/stacked-diffs-versus-pull-requests/).
+
+# How
+
+## Installing
+
+Download the appropriate standalone binary for your platform (Linux or OS X, sorry Windows users, you can run the Java
+version maybe?) and install it into your `PATH` somewhere (`~/.local/bin`?) and then create a configuration file in 
+`~/.git-jaspr.properties` with the following contents:
+
+```properties
+github-token=<GH PAT>
+```
+
+Where `<GH PAT>` is a GitHub Personal Access Token (classic) with the permissions `read:org`, `read:user`, and 
+`user:email`.
+
+## Using
+
+Some commands to try:
+```shell
+$ git jaspr -h 
+$ git jaspr status
+$ git jaspr push
+$ git jaspr merge
+$ git jaspr auto-merge
+$ git jaspr clean
+```
+
+Any of the above can be invoked with `--help` (except just `git jaspr` which requires `-h` for reasons not worth going
+into).
+
+Enjoy!
