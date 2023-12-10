@@ -239,28 +239,28 @@ class GitJaspr(
     }
 
     suspend fun autoMerge(refSpec: RefSpec, pollingIntervalSeconds: Int = 10) {
-        val remoteName = config.remoteName
-        gitClient.fetch(remoteName)
-
-        val numCommitsBehind = gitClient.logRange(refSpec.localRef, "$remoteName/${refSpec.remoteRef}").size
-        if (numCommitsBehind > 0) {
-            val commits = if (numCommitsBehind > 1) "commits" else "commit"
-            logger.warn(
-                "Cannot merge because your stack is out-of-date with the base branch ({} {} behind {}).",
-                numCommitsBehind,
-                commits,
-                refSpec.remoteRef,
-            )
-            return
-        }
-
-        val stack = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
-        if (stack.isEmpty()) {
-            logger.warn("Stack is empty.")
-            return
-        }
-
         while (true) {
+            val remoteName = config.remoteName
+            gitClient.fetch(remoteName)
+
+            val numCommitsBehind = gitClient.logRange(refSpec.localRef, "$remoteName/${refSpec.remoteRef}").size
+            if (numCommitsBehind > 0) {
+                val commits = if (numCommitsBehind > 1) "commits" else "commit"
+                logger.warn(
+                    "Cannot merge because your stack is out-of-date with the base branch ({} {} behind {}).",
+                    numCommitsBehind,
+                    commits,
+                    refSpec.remoteRef,
+                )
+                break
+            }
+
+            val stack = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
+            if (stack.isEmpty()) {
+                logger.warn("Stack is empty.")
+                break
+            }
+
             val statuses = getRemoteCommitStatuses(stack)
             if (statuses.all { status -> status.approved == true && status.checksPass == true }) {
                 merge(refSpec)
