@@ -27,64 +27,9 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import sims.michael.gitjaspr.RemoteRefEncoding.DEFAULT_REMOTE_BRANCH_PREFIX
 import java.io.File
-import org.slf4j.event.Level as SLF4JLevel
 
-/*
-git jaspr push [remote-name] [[local-object:]target-ref]
-
-If not provided:
-remote-name: origin
-local-ref: HEAD
-target-branch: main
- */
-class Push : GitJasprCommand() { // Common options/arguments are inherited from the superclass
-    private val refSpec by argument()
-        .convert(conversion = ArgumentTransformContext::convertRefSpecString)
-        .help {
-            """
-            A refspec in the form `[[local-object:]target-ref]`. Patterned after a typical git refspec, it describes the 
-            local commit that should be pushed to the remote, followed by a colon, followed by the name of the target 
-            branch on the remote. The local object name (and the colon) can be omitted, in which case the default is 
-            `$DEFAULT_LOCAL_OBJECT`. If the target-ref is also omitted, it defaults to the value of the 
-            `${defaultTargetRefDelegate.names.single()}` option or `$DEFAULT_TARGET_REF`.
-            """.trimIndent()
-        }
-        .defaultLazy { RefSpec(DEFAULT_LOCAL_OBJECT, defaultTargetRef) }
-
-    override suspend fun doRun() = appWiring.gitJaspr.push(refSpec)
-}
-
-// TODO remove this at some point
-class TestLogging : GitJasprCommand() {
-    private val logger = LoggerFactory.getLogger(TestLogging::class.java)
-    override suspend fun doRun() {
-        for (level in SLF4JLevel.entries.reversed()) {
-            println("Logging message at $level:")
-            logger.atLevel(level).log { "I'm a log message at $level level" }
-        }
-        throw IllegalStateException("Testing IllegalStateException")
-    }
-}
-
-class InstallCommitIdHook : GitJasprCommand() {
-    override suspend fun doRun() {
-        appWiring.gitJaspr.installCommitIdHook()
-    }
-}
-
-class NoOp : GitJasprCommand() {
-    private val logger = LoggerFactory.getLogger(TestLogging::class.java)
-
-    @Suppress("unused")
-    val extraArgs by argument().multiple() // Ignore extra args
-
-    override suspend fun doRun() {
-        logger.info(commandName)
-    }
-}
-
-// git jaspr status [remote-name] [[local-object:]target-ref]
-class Status : GitJasprCommand() { // Common options/arguments are inherited from the superclass
+//region Commands
+class Status : GitJasprCommand(help = "Show status of current stack") {
     private val refSpec by argument()
         .convert(conversion = ArgumentTransformContext::convertRefSpecString)
         .help {
@@ -104,15 +49,31 @@ class Status : GitJasprCommand() { // Common options/arguments are inherited fro
     }
 }
 
-// git jaspr merge [remote-name] [local-object]
-class Merge : GitJasprCommand() { // Common options/arguments are inherited from the superclass
+class Push : GitJasprCommand(help = "Push local commits to the remote and open PRs for each one") {
+    private val refSpec by argument()
+        .convert(conversion = ArgumentTransformContext::convertRefSpecString)
+        .help {
+            """
+            A refspec in the form `[[local-object:]target-ref]`. Patterned after a typical git refspec, it describes the 
+            local commit that should be pushed to the remote, followed by a colon, followed by the name of the target 
+            branch on the remote. The local object name (and the colon) can be omitted, in which case the default is 
+            `$DEFAULT_LOCAL_OBJECT`. If the target-ref is also omitted, it defaults to the value of the 
+            `${defaultTargetRefDelegate.names.single()}` option or `$DEFAULT_TARGET_REF`.
+            """.trimIndent()
+        }
+        .defaultLazy { RefSpec(DEFAULT_LOCAL_OBJECT, defaultTargetRef) }
+
+    override suspend fun doRun() = appWiring.gitJaspr.push(refSpec)
+}
+
+class Merge : GitJasprCommand(help = "Merge all local commits that are mergeable") {
     private val refSpec by argument()
         .convert(conversion = ArgumentTransformContext::convertRefSpecString)
         .help {
             """
             A refspec in the form `[[local-object:]target-ref]`. Patterned after a typical git refspec, it describes a 
             local commit, followed by a colon, followed by the name of a target branch on the remote. The local commit
-            is compared to the target ref to determine which commits should be included in the status report.
+            is compared to the target ref to determine which commits should be included in the merge.
             The local object name (and the colon) can be omitted, in which case the default is 
             `$DEFAULT_LOCAL_OBJECT`. If the target-ref is also omitted, it defaults to the value of the 
             `${defaultTargetRefDelegate.names.single()}` option or `$DEFAULT_TARGET_REF`.
@@ -123,15 +84,14 @@ class Merge : GitJasprCommand() { // Common options/arguments are inherited from
     override suspend fun doRun() = appWiring.gitJaspr.merge(refSpec)
 }
 
-// git jaspr merge [remote-name] [local-object]
-class AutoMerge : GitJasprCommand() { // Common options/arguments are inherited from the superclass
+class AutoMerge : GitJasprCommand(help = "Poll GitHub until all local commits are mergeable, then merge them") {
     private val refSpec by argument()
         .convert(conversion = ArgumentTransformContext::convertRefSpecString)
         .help {
             """
             A refspec in the form `[[local-object:]target-ref]`. Patterned after a typical git refspec, it describes a 
             local commit, followed by a colon, followed by the name of a target branch on the remote. The local commit
-            is compared to the target ref to determine which commits should be included in the status report.
+            is compared to the target ref to determine which commits should be included in the merge.
             The local object name (and the colon) can be omitted, in which case the default is 
             `$DEFAULT_LOCAL_OBJECT`. If the target-ref is also omitted, it defaults to the value of the 
             `${defaultTargetRefDelegate.names.single()}` option or `$DEFAULT_TARGET_REF`.
@@ -139,12 +99,15 @@ class AutoMerge : GitJasprCommand() { // Common options/arguments are inherited 
         }
         .defaultLazy { RefSpec(DEFAULT_LOCAL_OBJECT, defaultTargetRef) }
 
-    private val interval by option("--interval", "-i").int().default(10).help { "Polling interval in seconds to use." }
+    private val interval by option("--interval", "-i")
+        .int()
+        .default(10)
+        .help { "Polling interval in seconds. Setting this too low may exhaust GitHub rate limiting" }
 
     override suspend fun doRun() = appWiring.gitJaspr.autoMerge(refSpec, interval)
 }
 
-class Clean : GitJasprCommand() { // Common options/arguments are inherited from the superclass
+class Clean : GitJasprCommand(help = "Clean up orphaned jaspr branches") {
     private val forceDelegate = option("-f").flag("--no-force", default = false).help {
         "Supply this flag to remove orphaned branches"
     }
@@ -156,6 +119,25 @@ class Clean : GitJasprCommand() { // Common options/arguments are inherited from
         appWiring.gitJaspr.clean(dryRun = !force)
     }
 }
+
+class InstallCommitIdHook : GitJasprCommand(help = "Install commit-msg hook that adds commit-id's to local commits") {
+    override suspend fun doRun() {
+        appWiring.gitJaspr.installCommitIdHook()
+    }
+}
+
+// Used by tests
+class NoOp : GitJasprCommand(help = "Do nothing", hidden = true) {
+    private val logger = LoggerFactory.getLogger(NoOp::class.java)
+
+    @Suppress("unused")
+    val extraArgs by argument().multiple() // Ignore extra args
+
+    override suspend fun doRun() {
+        logger.info(commandName)
+    }
+}
+//endregion
 
 private class GitHubOptions : OptionGroup(name = "GitHub Options") {
     val githubHost by option()
@@ -177,7 +159,8 @@ private fun ArgumentTransformContext.convertRefSpecString(refSpecString: String)
     }
 }
 
-abstract class GitJasprCommand : CliktCommand() {
+abstract class GitJasprCommand(help: String = "", hidden: Boolean = false) :
+    CliktCommand(hidden = hidden, help = help) {
     private val workingDirectory = File(System.getProperty(WORKING_DIR_PROPERTY_NAME) ?: ".").findNearestGitDir()
         .canonicalFile
         .also { dir ->
@@ -242,7 +225,7 @@ abstract class GitJasprCommand : CliktCommand() {
         .default(DEFAULT_REMOTE_BRANCH_PREFIX)
         .help { "The prefix to use for all git jaspr created branches in the remote" }
 
-    private val showConfig by option().flag("--no-show-config", default = false)
+    private val showConfig by option(hidden = true).flag("--no-show-config", default = false)
         .help { "Print the effective configuration to standard output (for debugging)" }
 
     private val remoteName by argument()
@@ -410,10 +393,9 @@ object Cli {
                     Push(),
                     Merge(),
                     AutoMerge(),
-                    TestLogging(),
-                    NoOp(),
-                    InstallCommitIdHook(),
                     Clean(),
+                    InstallCommitIdHook(),
+                    NoOp(),
                 ),
             )
             .main(args)
