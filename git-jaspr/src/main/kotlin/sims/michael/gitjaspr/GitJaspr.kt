@@ -268,8 +268,22 @@ class GitJaspr(
         }
 
         val refSpecs = listOf(RefSpec(lastMergeableStatus.localCommit.hash, refSpec.remoteRef))
-        gitClient.push(refSpecs)
-        logger.info("Merged {} ref(s) to {}", refSpecs.size, refSpec.remoteRef)
+        val targetRefAndCommitIdsToDelete = stack
+            .slice(0..indexLastMergeable)
+            .map { checkNotNull(it.id) }
+            .map { buildRemoteRef(it, refSpec.remoteRef, config.remoteBranchPrefix) }
+            .mapNotNull { getRemoteRefParts(it, config.remoteBranchPrefix) }
+            .map { (targetRef, commitId, _) -> targetRef to commitId }
+        val branchesToDelete = gitClient
+            .getRemoteBranches()
+            .map(RemoteBranch::name)
+            .filter {
+                getRemoteRefParts(it, config.remoteBranchPrefix)
+                    ?.let { (targetRef, commitId, _) -> targetRef to commitId in targetRefAndCommitIdsToDelete } == true
+            }
+            .map { RefSpec("+", it) }
+        gitClient.push(refSpecs + branchesToDelete)
+        logger.info("Merged {} ref(s) to {}", indexLastMergeable + 1, refSpec.remoteRef)
 
         val prsToClose = statuses.slice(0 until indexLastMergeable).mapNotNull(RemoteCommitStatus::pullRequest)
         for (pr in prsToClose) {

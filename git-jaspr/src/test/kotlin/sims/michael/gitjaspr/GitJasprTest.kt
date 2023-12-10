@@ -1804,6 +1804,88 @@ E
         }
     }
 
+    @Test
+    fun `merge deletes relevant branches`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "a"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("a_01")
+                        }
+                        commit {
+                            title = "b"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("b_01")
+                        }
+                        commit {
+                            title = "c"
+                            localRefs += "dev1"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("c_01")
+                        }
+                    }
+                },
+            )
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "z"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("z")
+                        }
+                        commit {
+                            title = "a"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("a")
+                        }
+                        commit {
+                            title = "b"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("b")
+                        }
+                        commit {
+                            title = "c"
+                            willPassVerification = true
+                            localRefs += "dev2"
+                            remoteRefs += buildRemoteRef("c")
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("z")
+                        baseRef = "main"
+                        title = "z"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("a")
+                        baseRef = buildRemoteRef("z")
+                        title = "a"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("b")
+                        baseRef = buildRemoteRef("a")
+                        title = "b"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("c")
+                        baseRef = buildRemoteRef("b")
+                        title = "c"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                },
+            )
+
+            waitForChecksToConclude("z", "a", "b", "c")
+            merge(RefSpec("dev2", "main"))
+            assertEquals(listOf("main"), localGit.getRemoteBranches().map(RemoteBranch::name))
+        }
+    }
     //endregion
 }
 
