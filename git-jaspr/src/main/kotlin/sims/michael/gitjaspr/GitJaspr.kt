@@ -8,6 +8,7 @@ import sims.michael.gitjaspr.GitJaspr.StatusBits.Status.*
 import sims.michael.gitjaspr.RemoteRefEncoding.REV_NUM_DELIMITER
 import sims.michael.gitjaspr.RemoteRefEncoding.buildRemoteRef
 import sims.michael.gitjaspr.RemoteRefEncoding.getRemoteRefParts
+import kotlin.text.RegexOption.IGNORE_CASE
 import kotlin.time.Duration.Companion.seconds
 
 class GitJaspr(
@@ -52,6 +53,7 @@ class GitJaspr(
 
         val existingPrsByCommitId = pullRequestsRebased.associateBy(PullRequest::commitId)
 
+        val isDraftRegex = "^draft\\b.*$".toRegex(IGNORE_CASE)
         val prsToMutate = stack
             .windowedPairs()
             .map { (prevCommit, currentCommit) ->
@@ -71,6 +73,7 @@ class GitJaspr(
                     approved = existingPr?.approved,
                     checkConclusionStates = existingPr?.checkConclusionStates.orEmpty(),
                     permalink = existingPr?.permalink,
+                    isDraft = isDraftRegex.matches(currentCommit.shortMessage),
                 )
             }
             .filter { pr -> existingPrsByCommitId[pr.commitId] != pr }

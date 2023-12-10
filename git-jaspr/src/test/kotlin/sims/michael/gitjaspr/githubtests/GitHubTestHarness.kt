@@ -17,6 +17,7 @@ import java.io.IOException
 import java.nio.file.Files
 import java.util.Properties
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.text.RegexOption.IGNORE_CASE
 
 class GitHubTestHarness private constructor(
     val scratchDir: File,
@@ -177,6 +178,7 @@ class GitHubTestHarness private constructor(
                 .appendText("This is an uncommitted change.\n")
         }
 
+        val isDraftRegex = "^draft\\b.*$".toRegex(IGNORE_CASE)
         val prs = testCase.pullRequests
         if (prs.isNotEmpty()) {
             val existingPrsByTitle = gitHub.getPullRequestsById().associateBy(PullRequest::title)
@@ -201,6 +203,7 @@ class GitHubTestHarness private constructor(
                     checksPass = commitsByTitle[pr.title]?.willPassVerification,
                     approved = pr.willBeApprovedByUserKey?.isNotBlank(),
                     permalink = "http://example.com",
+                    isDraft = isDraftRegex.matches(pr.title),
                 )
                 val existingPr = existingPrsByTitle[pr.title]
                 val createdOrUpdatedPr = if (existingPr == null) {

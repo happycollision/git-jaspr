@@ -1066,6 +1066,32 @@ commit-id: 0
             assertEquals(commits, prs)
         }
     }
+
+    @Test
+    fun `push creates draft PRs based on commit subject`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "DRAFT: this is a test"
+                            id = "a"
+                        }
+                        commit {
+                            title = "b"
+                            localRefs += "development"
+                        }
+                    }
+                },
+            )
+            push()
+
+            assertEquals(
+                listOf(true, false),
+                gitHub.getPullRequests().map(PullRequest::isDraft),
+            )
+        }
+    }
     //endregion
 
     // region pr body tests

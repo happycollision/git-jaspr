@@ -9,6 +9,7 @@ mutation createPullRequest($input: CreatePullRequestInput!) {
             headRefName
             reviewDecision
             permalink
+            isDraft
             commits(first:25) {
                 nodes {
                     commit {

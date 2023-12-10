@@ -82,6 +82,7 @@ class GitHubClientImpl(
                         },
                         pr.conclusionStates,
                         pr.permalink,
+                        pr.isDraft,
                     )
                 } else {
                     null
@@ -132,6 +133,7 @@ class GitHubClientImpl(
                     },
                     pr.conclusionStates,
                     pr.permalink,
+                    pr.isDraft,
                 )
             }
             .also { pullRequests -> logger.trace("getPullRequests {}: {}", pullRequests.size, pullRequests) }
@@ -150,6 +152,7 @@ class GitHubClientImpl(
                             repositoryId = repositoryId(),
                             title = pullRequest.title,
                             body = pullRequest.body,
+                            draft = pullRequest.isDraft,
                         ),
                     ),
                 ),
@@ -188,6 +191,7 @@ class GitHubClientImpl(
                 else -> null
             },
             permalink = pr.permalink,
+            isDraft = pr.isDraft,
         )
     }
 

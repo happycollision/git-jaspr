@@ -23,6 +23,7 @@ query getPullRequests(
                 mergeable
                 reviewDecision
                 permalink
+                isDraft
                 repository {
                     id
                 }
