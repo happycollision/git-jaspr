@@ -1887,6 +1887,84 @@ E
         }
     }
     //endregion
+
+    @Test
+    fun `clean deletes expected branches`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "a"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("a_01")
+                        }
+                        commit {
+                            title = "b"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("b_01")
+                        }
+                        commit {
+                            title = "c"
+                            localRefs += "dev1"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("c_01")
+                        }
+                    }
+                },
+            )
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "z"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("z")
+                        }
+                        commit {
+                            title = "a"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("a")
+                        }
+                        commit {
+                            title = "b"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("b")
+                        }
+                        commit {
+                            title = "c"
+                            willPassVerification = true
+                            localRefs += "dev2"
+                            remoteRefs += buildRemoteRef("c")
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("z")
+                        baseRef = "main"
+                        title = "z"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("a")
+                        baseRef = buildRemoteRef("z")
+                        title = "a"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                },
+            )
+
+            gitJaspr.clean(false)
+            assertEquals(
+                listOf(
+                    buildRemoteRef("a"),
+                    buildRemoteRef("a_01"),
+                    buildRemoteRef("z"),
+                    "main",
+                ),
+                localGit.getRemoteBranches().map(RemoteBranch::name),
+            )
+        }
+    }
 }
 
 // It may seem silly to repeat what is already defined in GitJaspr.HEADER, but if a dev changes the header I want

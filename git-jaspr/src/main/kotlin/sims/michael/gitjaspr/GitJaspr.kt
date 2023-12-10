@@ -302,6 +302,32 @@ class GitJaspr(
         check(hook.setExecutable(true)) { "Failed to set the executable bit on $hook" }
     }
 
+    suspend fun clean(dryRun: Boolean) {
+        val pullRequests = ghClient.getPullRequests().map(PullRequest::headRefName).toSet()
+        gitClient.fetch(config.remoteName)
+        val orphanedBranches = gitClient
+            .getRemoteBranches()
+            .map(RemoteBranch::name)
+            .filter {
+                val remoteRefParts = getRemoteRefParts(it, config.remoteBranchPrefix)
+                if (remoteRefParts != null) {
+                    val (targetRef, commitId, _) = remoteRefParts
+                    // TODO why is it returning with the separator?
+                    val targetRefWithoutSeparator = targetRef.trim('/')
+                    buildRemoteRef(commitId, targetRefWithoutSeparator) !in pullRequests
+                } else {
+                    false
+                }
+            }
+        for (branch in orphanedBranches) {
+            logger.info("{} is orphaned", branch)
+        }
+        if (!dryRun) {
+            logger.info("Deleting {} branch(es)", orphanedBranches.size)
+            gitClient.push(orphanedBranches.map { RefSpec("+", it) })
+        }
+    }
+
     class SinglePullRequestPerCommitConstraintViolation(override val message: String) : RuntimeException(message)
 
     private fun checkSinglePullRequestPerCommit(pullRequests: List<PullRequest>): List<PullRequest> {

@@ -122,6 +122,19 @@ class Merge : GitJasprCommand() { // Common options/arguments are inherited from
     override suspend fun doRun() = appWiring.gitJaspr.merge(refSpec)
 }
 
+class Clean : GitJasprCommand() { // Common options/arguments are inherited from the superclass
+    private val forceDelegate = option("-f").flag("--no-force", default = false).help {
+        "Supply this flag to remove orphaned branches"
+    }
+    private val force by forceDelegate
+    override suspend fun doRun() {
+        if (!force) {
+            Cli.logger.info("Refusing to delete branches without the ${forceDelegate.names.first()} option.")
+        }
+        appWiring.gitJaspr.clean(dryRun = !force)
+    }
+}
+
 private class GitHubOptions : OptionGroup(name = "GitHub Options") {
     val githubHost by option()
         .help { "The GitHub host. This will be inferred by the remote URI if not specified." }
@@ -377,6 +390,7 @@ object Cli {
                     TestLogging(),
                     NoOp(),
                     InstallCommitIdHook(),
+                    Clean(),
                 ),
             )
             .main(args)
