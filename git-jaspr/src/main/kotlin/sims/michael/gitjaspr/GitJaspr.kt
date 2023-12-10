@@ -253,6 +253,10 @@ class GitJaspr(
         }
 
         val stack = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
+        if (stack.isEmpty()) {
+            logger.warn("Stack is empty.")
+            return
+        }
 
         val statuses = getRemoteCommitStatuses(stack)
 

@@ -1379,6 +1379,13 @@ E
 
     //region merge tests
     @Test
+    fun `merge empty stack`() {
+        withTestSetup(useFakeRemote) {
+            merge(RefSpec("main", "main"))
+        }
+    }
+
+    @Test
     fun `merge happy path`() {
         withTestSetup(useFakeRemote) {
             createCommitsFrom(
