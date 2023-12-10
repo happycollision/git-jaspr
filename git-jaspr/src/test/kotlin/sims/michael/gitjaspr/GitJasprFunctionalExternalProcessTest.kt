@@ -75,6 +75,26 @@ class GitJasprFunctionalExternalProcessTest : GitJasprTest {
         )
     }
 
+    override suspend fun GitHubTestHarness.autoMerge(refSpec: RefSpec, pollingIntervalSeconds: Int) {
+        executeCli(
+            scratchDir = scratchDir,
+            remoteUri = remoteUri,
+            remoteName = DEFAULT_REMOTE_NAME,
+            extraCliArgs = emptyList(),
+            homeDirConfig = buildHomeDirConfig(),
+            repoDirConfig = emptyMap(),
+            strings = listOf(
+                "auto-merge",
+                DEFAULT_REMOTE_NAME,
+                refSpec.toString(),
+                "--interval",
+                pollingIntervalSeconds.toString(),
+            ),
+            invokeLocation = localRepo,
+            javaOptions = javaOptions,
+        )
+    }
+
     override suspend fun GitHubTestHarness.waitForChecksToConclude(
         vararg commitFilter: String,
         timeout: Long,

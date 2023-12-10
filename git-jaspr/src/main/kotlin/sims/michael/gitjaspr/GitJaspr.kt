@@ -1,5 +1,6 @@
 package sims.michael.gitjaspr
 
+import kotlinx.coroutines.delay
 import org.slf4j.LoggerFactory
 import sims.michael.gitjaspr.CommitFooters.trimFooters
 import sims.michael.gitjaspr.GitJaspr.StatusBits.Status
@@ -7,6 +8,7 @@ import sims.michael.gitjaspr.GitJaspr.StatusBits.Status.*
 import sims.michael.gitjaspr.RemoteRefEncoding.REV_NUM_DELIMITER
 import sims.michael.gitjaspr.RemoteRefEncoding.buildRemoteRef
 import sims.michael.gitjaspr.RemoteRefEncoding.getRemoteRefParts
+import kotlin.time.Duration.Companion.seconds
 
 class GitJaspr(
     private val ghClient: GitHubClient,
@@ -233,6 +235,40 @@ class GitJaspr(
                 append("You'll need to rebase it (`git rebase $remoteName/${refSpec.remoteRef}`) ")
                 appendLine("before your stack will be mergeable.")
             }
+        }
+    }
+
+    suspend fun autoMerge(refSpec: RefSpec, pollingIntervalSeconds: Int = 10) {
+        val remoteName = config.remoteName
+        gitClient.fetch(remoteName)
+
+        val numCommitsBehind = gitClient.logRange(refSpec.localRef, "$remoteName/${refSpec.remoteRef}").size
+        if (numCommitsBehind > 0) {
+            val commits = if (numCommitsBehind > 1) "commits" else "commit"
+            logger.warn(
+                "Cannot merge because your stack is out-of-date with the base branch ({} {} behind {}).",
+                numCommitsBehind,
+                commits,
+                refSpec.remoteRef,
+            )
+            return
+        }
+
+        val stack = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
+        if (stack.isEmpty()) {
+            logger.warn("Stack is empty.")
+            return
+        }
+
+        while (true) {
+            val statuses = getRemoteCommitStatuses(stack)
+            if (statuses.all { status -> status.approved == true && status.checksPass == true }) {
+                merge(refSpec)
+                break
+            }
+            print(getStatusString(refSpec))
+            logger.info("Delaying for $pollingIntervalSeconds seconds... (CTRL-C to cancel)")
+            delay(pollingIntervalSeconds.seconds)
         }
     }
 

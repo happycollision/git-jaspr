@@ -17,6 +17,7 @@ import com.github.ajalt.clikt.parameters.groups.provideDelegate
 import com.github.ajalt.clikt.parameters.options.*
 import com.github.ajalt.clikt.parameters.types.choice
 import com.github.ajalt.clikt.parameters.types.file
+import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.sources.ChainedValueSource
 import com.github.ajalt.clikt.sources.PropertiesValueSource
 import com.github.ajalt.clikt.sources.ValueSource.Companion.getKey
@@ -120,6 +121,27 @@ class Merge : GitJasprCommand() { // Common options/arguments are inherited from
         .defaultLazy { RefSpec(DEFAULT_LOCAL_OBJECT, defaultTargetRef) }
 
     override suspend fun doRun() = appWiring.gitJaspr.merge(refSpec)
+}
+
+// git jaspr merge [remote-name] [local-object]
+class AutoMerge : GitJasprCommand() { // Common options/arguments are inherited from the superclass
+    private val refSpec by argument()
+        .convert(conversion = ArgumentTransformContext::convertRefSpecString)
+        .help {
+            """
+            A refspec in the form `[[local-object:]target-ref]`. Patterned after a typical git refspec, it describes a 
+            local commit, followed by a colon, followed by the name of a target branch on the remote. The local commit
+            is compared to the target ref to determine which commits should be included in the status report.
+            The local object name (and the colon) can be omitted, in which case the default is 
+            `$DEFAULT_LOCAL_OBJECT`. If the target-ref is also omitted, it defaults to the value of the 
+            `${defaultTargetRefDelegate.names.single()}` option or `$DEFAULT_TARGET_REF`.
+            """.trimIndent()
+        }
+        .defaultLazy { RefSpec(DEFAULT_LOCAL_OBJECT, defaultTargetRef) }
+
+    private val interval by option("--interval", "-i").int().default(10).help { "Polling interval in seconds to use." }
+
+    override suspend fun doRun() = appWiring.gitJaspr.autoMerge(refSpec, interval)
 }
 
 class Clean : GitJasprCommand() { // Common options/arguments are inherited from the superclass
@@ -387,6 +409,7 @@ object Cli {
                     Status(),
                     Push(),
                     Merge(),
+                    AutoMerge(),
                     TestLogging(),
                     NoOp(),
                     InstallCommitIdHook(),

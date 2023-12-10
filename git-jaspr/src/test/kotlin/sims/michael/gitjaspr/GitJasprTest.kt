@@ -24,6 +24,9 @@ interface GitJasprTest {
 
     suspend fun GitHubTestHarness.merge(refSpec: RefSpec) = gitJaspr.merge(refSpec)
 
+    suspend fun GitHubTestHarness.autoMerge(refSpec: RefSpec, pollingIntervalSeconds: Int = 10) =
+        gitJaspr.autoMerge(refSpec)
+
     suspend fun GitHubTestHarness.getRemoteCommitStatuses(stack: List<Commit>) = gitJaspr.getRemoteCommitStatuses(stack)
 
     suspend fun GitHubTestHarness.waitForChecksToConclude(
@@ -1431,6 +1434,59 @@ E
 
             waitForChecksToConclude("one", "two", "three")
             merge(RefSpec("development", "main"))
+
+            assertEquals(
+                emptyList(),
+                localGit.getLocalCommitStack(DEFAULT_REMOTE_NAME, "development", DEFAULT_TARGET_REF),
+            )
+        }
+    }
+
+    @Test
+    fun `autoMerge happy path`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("one")
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("two")
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("three")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
+                        title = "two"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                },
+            )
+
+            autoMerge(RefSpec("development", "main"))
 
             assertEquals(
                 emptyList(),
