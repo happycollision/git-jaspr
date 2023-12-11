@@ -1934,12 +1934,12 @@ E
                         commit {
                             title = "b"
                             willPassVerification = true
+                            localRefs += "dev2"
                             remoteRefs += buildRemoteRef("b")
                         }
                         commit {
                             title = "c"
                             willPassVerification = true
-                            localRefs += "dev2"
                             remoteRefs += buildRemoteRef("c")
                         }
                     }
@@ -1972,7 +1972,16 @@ E
 
             waitForChecksToConclude("z", "a", "b", "c")
             merge(RefSpec("dev2", "main"))
-            assertEquals(listOf("main"), localGit.getRemoteBranches().map(RemoteBranch::name))
+            assertEquals(
+                listOf(
+                    buildRemoteRef("b"),
+                    buildRemoteRef("b_01"),
+                    buildRemoteRef("c"),
+                    buildRemoteRef("c_01"),
+                    "main",
+                ),
+                localGit.getRemoteBranches().map(RemoteBranch::name),
+            )
         }
     }
     //endregion
