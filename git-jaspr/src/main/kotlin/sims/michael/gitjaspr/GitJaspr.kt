@@ -311,20 +311,7 @@ class GitJaspr(
         }
 
         val refSpecs = listOf(RefSpec(lastMergeableStatus.localCommit.hash, refSpec.remoteRef))
-        val targetRefAndCommitIdsToDelete = stack
-            .slice(0..indexLastMergeable)
-            .map { checkNotNull(it.id) }
-            .map { buildRemoteRef(it, refSpec.remoteRef, config.remoteBranchPrefix) }
-            .mapNotNull { getRemoteRefParts(it, config.remoteBranchPrefix) }
-            .map { (targetRef, commitId, _) -> targetRef to commitId }
-        val branchesToDelete = gitClient
-            .getRemoteBranches()
-            .map(RemoteBranch::name)
-            .filter {
-                getRemoteRefParts(it, config.remoteBranchPrefix)
-                    ?.let { (targetRef, commitId, _) -> targetRef to commitId in targetRefAndCommitIdsToDelete } == true
-            }
-            .map { RefSpec("+", it) }
+        val branchesToDelete = getBranchesToDeleteDuringMerge(stack.slice(0..indexLastMergeable), refSpec.remoteRef)
         gitClient.push(refSpecs + branchesToDelete)
         logger.info("Merged {} ref(s) to {}", indexLastMergeable + 1, refSpec.remoteRef)
 
@@ -332,6 +319,23 @@ class GitJaspr(
         for (pr in prsToClose) {
             ghClient.closePullRequest(pr)
         }
+    }
+
+    private fun getBranchesToDeleteDuringMerge(stackBeingMerged: List<Commit>, targetRef: String): List<RefSpec> {
+        val targetRefAndCommitIdsToDelete = stackBeingMerged
+            .map { commit -> checkNotNull(commit.id) }
+            .map { id -> buildRemoteRef(id, targetRef, config.remoteBranchPrefix) }
+            .mapNotNull { remoteRef -> getRemoteRefParts(remoteRef, config.remoteBranchPrefix) }
+            .map { (targetRef, commitId, _) -> targetRef to commitId }
+        val branchesToDelete = gitClient
+            .getRemoteBranches()
+            .map(RemoteBranch::name)
+            .filter { branchName ->
+                getRemoteRefParts(branchName, config.remoteBranchPrefix)
+                    ?.let { (targetRef, commitId, _) -> targetRef to commitId in targetRefAndCommitIdsToDelete } == true
+            }
+            .map { branchName -> RefSpec("+", branchName) }
+        return branchesToDelete
     }
 
     fun installCommitIdHook() {
