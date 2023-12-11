@@ -61,6 +61,7 @@ class GitHubStubClient(private val remoteBranchPrefix: String, private val local
     }
 
     override suspend fun closePullRequest(pullRequest: PullRequest) {
+        logger.trace("closePullRequest {}", pullRequest)
         synchronized(prs) {
             val i = prs.map(PullRequestAndState::pullRequest).indexOfFirst { it.id == pullRequest.id }
             require(i > -1) { "PR $pullRequest was not found" }
@@ -91,7 +92,10 @@ class GitHubStubClient(private val remoteBranchPrefix: String, private val local
                 val commit = checkNotNull(commitsById[pr.commitId ?: continue])
                 val range = localGit.logRange("$DEFAULT_REMOTE_NAME/${DEFAULT_TARGET_REF}", commit.hash)
                 // Close it if it's already been merged
-                if (range.isEmpty()) prs[i] = prs[i].copy(open = false)
+                if (range.isEmpty()) {
+                    logger.trace("autoClosePrs closing {}", prs[i])
+                    prs[i] = prs[i].copy(open = false)
+                }
             }
         }
     }
