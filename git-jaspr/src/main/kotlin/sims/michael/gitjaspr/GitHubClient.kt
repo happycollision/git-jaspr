@@ -35,14 +35,14 @@ class GitHubClientImpl(
     private val logger = LoggerFactory.getLogger(GitHubClient::class.java)
 
     override suspend fun getPullRequests(commitFilter: List<Commit>?): List<PullRequest> {
-        logger.trace("getPullRequests")
+        logger.trace("getPullRequests {}", commitFilter ?: "")
         return getPullRequestsById(
             commitFilter?.map { commit -> requireNotNull(commit.id) { "Missing commit id, filter is $commitFilter" } },
         )
     }
 
     override suspend fun getPullRequestsById(commitFilter: List<String>?): List<PullRequest> {
-        logger.trace("getPullRequests")
+        logger.trace("getPullRequestsById {}", commitFilter ?: "")
 
         // If commitFilter was supplied, build a set of commit IDs for filtering the returned PR list.
         // It'd be nice if the server could filter this for us but there doesn't seem to be a good way to do that.
@@ -92,6 +92,7 @@ class GitHubClientImpl(
     }
 
     override suspend fun getPullRequestsByHeadRef(headRefName: String): List<PullRequest> {
+        logger.trace("getPullRequestsByHeadRef {}", headRefName)
         val response = delegate.execute(
             GetPullRequestsByHeadRef(
                 GetPullRequestsByHeadRef.Variables(
@@ -235,7 +236,7 @@ class GitHubClientImpl(
     }
 
     override suspend fun approvePullRequest(pullRequest: PullRequest) {
-        logger.trace("approvePullRequest {}", "")
+        logger.trace("approvePullRequest {}", pullRequest)
         checkNotNull(pullRequest.id) { "Cannot approve $pullRequest without an ID" }
         delegate
             .execute(

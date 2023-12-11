@@ -17,7 +17,7 @@ class GitHubStubClient(private val remoteBranchPrefix: String, private val local
     private val prs = mutableListOf<PullRequestAndState>()
 
     override suspend fun getPullRequests(commitFilter: List<Commit>?): List<PullRequest> {
-        logger.trace("getPullRequests")
+        logger.trace("getPullRequests {}", commitFilter ?: "")
         return synchronized(prs) {
             autoClosePrs()
             if (commitFilter == null) {
@@ -33,7 +33,7 @@ class GitHubStubClient(private val remoteBranchPrefix: String, private val local
         filter(PullRequestAndState::open).map(PullRequestAndState::pullRequest)
 
     override suspend fun getPullRequestsById(commitFilter: List<String>?): List<PullRequest> {
-        logger.trace("getPullRequestsById")
+        logger.trace("getPullRequestsById {}", commitFilter ?: "")
         return synchronized(prs) {
             autoClosePrs()
             // TODO this looks suspect, if commitFilter is null we return nothing?
@@ -42,10 +42,12 @@ class GitHubStubClient(private val remoteBranchPrefix: String, private val local
     }
 
     override suspend fun getPullRequestsByHeadRef(headRefName: String): List<PullRequest> {
+        logger.trace("getPullRequestsByHeadRef {}", headRefName)
         return synchronized(prs) { prs.map(PullRequestAndState::pullRequest).filter { it.headRefName == headRefName } }
     }
 
     override suspend fun createPullRequest(pullRequest: PullRequest): PullRequest {
+        logger.trace("createPullRequest {}", pullRequest)
         val commitId = getCommitIdFromRemoteRef(pullRequest.headRefName, remoteBranchPrefix)
         return pullRequest
             .copy(
@@ -70,6 +72,7 @@ class GitHubStubClient(private val remoteBranchPrefix: String, private val local
     }
 
     override suspend fun approvePullRequest(pullRequest: PullRequest) {
+        logger.trace("approvePullRequest {}", pullRequest)
         // No op
     }
 
@@ -85,6 +88,7 @@ class GitHubStubClient(private val remoteBranchPrefix: String, private val local
     // Mimic GitHub's behavior since our program logic depends on it. Should be called from any method that returns
     // PRs so that the PR state is always viewed consistently with the git repo state
     private fun autoClosePrs() {
+        logger.trace("autoClosePrs")
         val commitsById = localGit.logAll().associateBy(Commit::id)
         synchronized(prs) {
             for (i in 0 until prs.size) {
