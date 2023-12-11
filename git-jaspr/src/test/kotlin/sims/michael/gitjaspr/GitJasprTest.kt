@@ -655,13 +655,13 @@ interface GitJasprTest {
                         commit {
                             title = "three"
                             willPassVerification = true
-                            remoteRefs += buildRemoteRef("three")
+                            remoteRefs += buildRemoteRef("three", "development")
                             localRefs += "development"
                         }
                     }
                     pullRequest {
-                        headRef = buildRemoteRef("three")
-                        baseRef = buildRemoteRef("two")
+                        headRef = buildRemoteRef("three", "development")
+                        baseRef = "development"
                         title = "three"
                         willBeApprovedByUserKey = "michael"
                     }
