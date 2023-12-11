@@ -20,7 +20,6 @@ class GitJaspr(
 
     private val logger = LoggerFactory.getLogger(GitJaspr::class.java)
 
-    // TODO consider pulling the target ref from the branch name instead of requiring it on the command line
     suspend fun getStatusString(refSpec: RefSpec = RefSpec(DEFAULT_LOCAL_OBJECT, DEFAULT_TARGET_REF)): String {
         logger.trace("getStatusString {}", refSpec)
         val remoteName = config.remoteName
@@ -101,7 +100,6 @@ class GitJaspr(
             remoteName,
             outOfDateBranches.map(RefSpec::remoteRef),
         )
-        // TODO consider push with lease here
         val refSpecs = outOfDateBranches.map(RefSpec::forcePush) + revisionHistoryRefs
         gitClient.push(refSpecs)
         logger.info("Pushed {} commit ref(s) and {} history ref(s)", outOfDateBranches.size, revisionHistoryRefs.size)
@@ -472,7 +470,7 @@ class GitJaspr(
             logger.warn("Consider running ${InstallCommitIdHook().commandName} to avoid this in the future.")
             val missing = commits.slice(indexOfFirstCommitMissingId until commits.size)
             val refName = "${missing.first().hash}^"
-            gitClient.reset(refName) // TODO need a test that we're resetting and not doing this in detached HEAD
+            gitClient.reset(refName)
             for (commit in missing) {
                 gitClient.cherryPick(commit)
                 if (commit.id == null) {
@@ -518,7 +516,6 @@ class GitJaspr(
         }
 
         for (pr in updatedPullRequests.toSet() - toSet()) {
-            // TODO doesn't this update all of them? Do we really need to do that?
             ghClient.updatePullRequest(pr)
         }
 

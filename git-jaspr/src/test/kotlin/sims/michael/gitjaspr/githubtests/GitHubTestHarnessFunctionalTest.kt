@@ -10,7 +10,6 @@ import sims.michael.gitjaspr.githubtests.generatedtestdsl.testCase
 import sims.michael.gitjaspr.testing.FunctionalTest
 import kotlin.test.assertEquals
 
-// TODO extract a common superclass from this and the other one?
 @FunctionalTest
 class GitHubTestHarnessFunctionalTest {
 

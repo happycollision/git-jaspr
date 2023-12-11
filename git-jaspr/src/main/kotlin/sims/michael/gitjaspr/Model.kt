@@ -76,9 +76,6 @@ data class PullRequest(
     val checkConclusionStates: List<String> = emptyList(),
     val permalink: String? = null,
     val isDraft: Boolean = false,
-    // TODO add state?
-    // TODO add draft?
-    // TODO add commits
 ) {
     override fun toString(): String {
         val numberString = number?.let { "#$it" }.orEmpty()

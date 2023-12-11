@@ -264,7 +264,6 @@ class JGitClient(
         logger.trace("cherryPick {}", commit)
         return useGit { git ->
             git.cherryPick().include(git.repository.resolve(commit.hash)).call().newHead.toCommit(git)
-            // TODO check results and things
         }
     }
 

@@ -1091,7 +1091,6 @@ commit-id: 0
 
             push()
 
-            // TODO the filter is having some impact on ordering. better if the list was properly ordered regardless
             val remotePrs = gitHub.getPullRequestsById(listOf("E", "C", "one", "B", "A", "two"))
 
             val prs = remotePrs.map { pullRequest -> pullRequest.baseRefName to pullRequest.headRefName }.toSet()
