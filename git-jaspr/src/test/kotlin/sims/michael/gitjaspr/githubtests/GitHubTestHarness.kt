@@ -155,7 +155,7 @@ class GitHubTestHarness private constructor(
                 }
 
                 for (remoteRef in commitData.remoteRefs) {
-                    localGit.push(listOf(RefSpec("+HEAD", remoteRef)))
+                    localGit.push(listOf(RefSpec("${FORCE_PUSH_PREFIX}HEAD", remoteRef)))
                 }
 
                 if (commitData.branches.isNotEmpty()) {
@@ -239,7 +239,7 @@ class GitHubTestHarness private constructor(
                 restoreRegex.matchEntire(name)
             }
             .map {
-                RefSpec("+" + it.groupValues[0], it.groupValues[1])
+                RefSpec(FORCE_PUSH_PREFIX + it.groupValues[0], it.groupValues[1])
             }
 
         // TODO this currently deletes all "jaspr/" branches indiscriminately. Much better would be to capture the ones
@@ -251,7 +251,7 @@ class GitHubTestHarness private constructor(
         val toDelete = localGit.getBranchNames()
             .mapNotNull { name -> deleteRegex.matchEntire(name) }
             .map { result ->
-                RefSpec("+", result.groupValues.last(String::isNotBlank))
+                RefSpec(FORCE_PUSH_PREFIX, result.groupValues.last(String::isNotBlank))
             }
         val refSpecs = (toRestore + toDelete).distinct()
         logger.debug("Pushing {}", refSpecs)

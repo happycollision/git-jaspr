@@ -264,7 +264,7 @@ class GitJaspr(
         }
         if (!dryRun) {
             logger.info("Deleting {} branch(es)", orphanedBranches.size)
-            gitClient.push(orphanedBranches.map { RefSpec("+", it) })
+            gitClient.push(orphanedBranches.map { RefSpec(FORCE_PUSH_PREFIX, it) })
         }
     }
 
@@ -406,7 +406,7 @@ class GitJaspr(
                         TargetRefToCommitId(targetRef, commitId) in deletionCandidates
                     } == true
             }
-            .map { branchName -> RefSpec("+", branchName) }
+            .map { branchName -> RefSpec(FORCE_PUSH_PREFIX, branchName) }
         logger.trace("Deletion list {}", branchesToDelete)
         return branchesToDelete
     }
