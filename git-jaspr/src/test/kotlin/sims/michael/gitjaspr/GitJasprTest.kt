@@ -1984,6 +1984,92 @@ E
             )
         }
     }
+
+    @Test
+    fun `merge rebases remaining PRs after merge`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "a"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("a_01")
+                        }
+                        commit {
+                            title = "b"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("b_01")
+                        }
+                        commit {
+                            title = "c"
+                            localRefs += "dev1"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("c_01")
+                        }
+                    }
+                },
+            )
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "z"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("z")
+                        }
+                        commit {
+                            title = "a"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("a")
+                        }
+                        commit {
+                            title = "b"
+                            willPassVerification = true
+                            localRefs += "dev2"
+                            remoteRefs += buildRemoteRef("b")
+                        }
+                        commit {
+                            title = "c"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("c")
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("z")
+                        baseRef = "main"
+                        title = "z"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("a")
+                        baseRef = buildRemoteRef("z")
+                        title = "a"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("b")
+                        baseRef = buildRemoteRef("a")
+                        title = "b"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("c")
+                        baseRef = buildRemoteRef("b")
+                        title = "c"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                },
+            )
+
+            waitForChecksToConclude("z", "a", "b", "c")
+            merge(RefSpec("dev2", "main"))
+            assertEquals(
+                setOf(buildRemoteRef("c") to "main"),
+                gitHub.getPullRequests().map { it.headRefName to it.baseRefName }.toSet(),
+            )
+        }
+    }
     //endregion
 
     @Test

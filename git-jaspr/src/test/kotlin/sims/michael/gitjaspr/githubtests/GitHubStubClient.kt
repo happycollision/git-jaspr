@@ -62,8 +62,8 @@ class GitHubStubClient(private val remoteBranchPrefix: String, private val local
 
     override suspend fun closePullRequest(pullRequest: PullRequest) {
         synchronized(prs) {
-            val i = prs.map(PullRequestAndState::pullRequest).indexOfFirst { it == pullRequest }
-            require(i > -1) { "PR was not found" }
+            val i = prs.map(PullRequestAndState::pullRequest).indexOfFirst { it.id == pullRequest.id }
+            require(i > -1) { "PR $pullRequest was not found" }
             prs[i] = prs[i].copy(open = false)
         }
     }

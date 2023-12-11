@@ -321,9 +321,17 @@ class GitJaspr(
         gitClient.push(refSpecs + branchesToDelete)
         logger.info("Merged {} ref(s) to {}", indexLastMergeable + 1, refSpec.remoteRef)
 
-        val prsToClose = statuses.slice(0 until indexLastMergeable).mapNotNull(RemoteCommitStatus::pullRequest)
+        val prsToClose = statuses.slice(0..indexLastMergeable).mapNotNull(RemoteCommitStatus::pullRequest)
         for (pr in prsToClose) {
             ghClient.closePullRequest(pr)
+        }
+
+        val lastMergedRef = stack[indexLastMergeable].toRemoteRefName()
+        val prsToRebase =
+            prs.filter { it.baseRefName == lastMergedRef }.map { it.copy(baseRefName = refSpec.remoteRef) }
+        logger.trace("Rebasing {} prs to {}", prsToRebase.size, refSpec.remoteRef)
+        for (pr in prsToRebase) {
+            ghClient.updatePullRequest(pr)
         }
     }
 
