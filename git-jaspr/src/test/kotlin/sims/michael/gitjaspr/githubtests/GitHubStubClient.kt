@@ -36,8 +36,11 @@ class GitHubStubClient(private val remoteBranchPrefix: String, private val local
         logger.trace("getPullRequestsById {}", commitFilter ?: "")
         return synchronized(prs) {
             autoClosePrs()
-            // TODO this looks suspect, if commitFilter is null we return nothing?
-            prs.openPullRequests().filter { it.commitId in commitFilter.orEmpty() }
+            prs
+                .openPullRequests()
+                .filter { pr ->
+                    if (commitFilter != null) pr.commitId in commitFilter else true
+                }
         }
     }
 
