@@ -12,7 +12,6 @@ import org.eclipse.jgit.transport.RemoteRefUpdate.Status
 import org.slf4j.LoggerFactory
 import sims.michael.gitjaspr.CommitFooters.addFooters
 import sims.michael.gitjaspr.CommitFooters.getFooters
-import sims.michael.gitjaspr.JGitClient.CheckoutMode.*
 import sims.michael.gitjaspr.RemoteRefEncoding.DEFAULT_REMOTE_BRANCH_PREFIX
 import sims.michael.gitjaspr.RemoteRefEncoding.getCommitIdFromRemoteRef
 import java.io.File
@@ -25,20 +24,8 @@ import org.eclipse.jgit.transport.RefSpec as JRefSpec
 class JGitClient(val workingDirectory: File, val remoteBranchPrefix: String = DEFAULT_REMOTE_BRANCH_PREFIX) {
     private val logger = LoggerFactory.getLogger(JGitClient::class.java)
 
-    fun commitIdsByBranch(): Map<String, String?> = useGit { git ->
-        git
-            .branchList()
-            .call()
-            .associate { ref ->
-                val name = ref.name
-                name to log(name, 1).first()
-            }
-            .mapValues { (_, commit) -> commit.id }
-            .filterKeys { it.startsWith("$R_HEADS$remoteBranchPrefix") }
-            .toSortedMap()
-    }
-
     fun getParents(commit: Commit): List<Commit> = useGit { git ->
+        logger.trace("getParents {}", commit)
         git
             .log()
             .add(git.repository.resolve(commit.hash))
@@ -50,6 +37,7 @@ class JGitClient(val workingDirectory: File, val remoteBranchPrefix: String = DE
     }
 
     fun log(revision: String, maxCount: Int = -1): List<Commit> = useGit { git ->
+        logger.trace("log {} {}", revision, maxCount)
         git
             .log()
             .add(git.repository.resolve(revision))
@@ -60,6 +48,7 @@ class JGitClient(val workingDirectory: File, val remoteBranchPrefix: String = DE
     }
 
     fun logRange(since: String, until: String): List<Commit> = useGit { git ->
+        logger.trace("logRange {}..{}", since, until)
         val r = git.repository
         val sinceObjectId = checkNotNull(r.resolve(since)) { "$since doesn't exist" }
         val untilObjectId = checkNotNull(r.resolve(until)) { "$until doesn't exist" }
@@ -67,9 +56,15 @@ class JGitClient(val workingDirectory: File, val remoteBranchPrefix: String = DE
         commits.map { revCommit -> revCommit.toCommit(git) }.reversed()
     }
 
-    fun log(): List<Commit> = useGit { git -> git.log().call().map { it.toCommit(git) }.reversed() }
+    fun log(): List<Commit> {
+        logger.trace("log")
+        return useGit { git -> git.log().call().map { it.toCommit(git) }.reversed() }
+    }
 
-    fun logAll(): List<Commit> = useGit { git -> git.log().all().call().map { it.toCommit(git) }.reversed() }
+    fun logAll(): List<Commit> {
+        logger.trace("logAll")
+        return useGit { git -> git.log().all().call().map { it.toCommit(git) }.reversed() }
+    }
 
     fun isWorkingDirectoryClean(): Boolean {
         logger.trace("isWorkingDirectoryClean")
@@ -97,40 +92,51 @@ class JGitClient(val workingDirectory: File, val remoteBranchPrefix: String = DE
         }
     }
 
-    fun refExists(ref: String) = useGit { git -> git.repository.resolve(ref) != null }
-
-    fun getBranchNames(): List<String> = useGit { git ->
-        git
-            .branchList()
-            .setListMode(ListBranchCommand.ListMode.ALL)
-            .call()
-            .map {
-                it.name.removePrefix(Constants.R_HEADS)
-            }
+    private fun refExists(ref: String): Boolean {
+        logger.trace("refExists {}", ref)
+        return useGit { git -> git.repository.resolve(ref) != null }
     }
 
-    fun getRemoteBranches(): List<RemoteBranch> = useGit { git ->
-        git
-            .branchList()
-            .setListMode(ListBranchCommand.ListMode.REMOTE)
-            .call()
-            .filter { it.name.startsWith(Constants.R_REMOTES) }
-            .map { ref ->
-                val r = git.repository
-                val shortBranchName = checkNotNull(r.shortenRemoteBranchName(ref.name)) {
-                    "Short branch name was null for ${ref.name}"
+    fun getBranchNames(): List<String> {
+        logger.trace("getBranchNames")
+        return useGit { git ->
+            git
+                .branchList()
+                .setListMode(ListBranchCommand.ListMode.ALL)
+                .call()
+                .map {
+                    it.name.removePrefix(Constants.R_HEADS)
                 }
-                RemoteBranch(shortBranchName, r.parseCommit(ref.objectId).toCommit(git))
-            }
+        }
     }
 
-    fun getRemoteBranchesById(): Map<String, RemoteBranch> =
-        getRemoteBranches()
+    fun getRemoteBranches(): List<RemoteBranch> {
+        logger.trace("getRemoteBranches")
+        return useGit { git ->
+            git
+                .branchList()
+                .setListMode(ListBranchCommand.ListMode.REMOTE)
+                .call()
+                .filter { it.name.startsWith(Constants.R_REMOTES) }
+                .map { ref ->
+                    val r = git.repository
+                    val shortBranchName = checkNotNull(r.shortenRemoteBranchName(ref.name)) {
+                        "Short branch name was null for ${ref.name}"
+                    }
+                    RemoteBranch(shortBranchName, r.parseCommit(ref.objectId).toCommit(git))
+                }
+        }
+    }
+
+    fun getRemoteBranchesById(): Map<String, RemoteBranch> {
+        logger.trace("getRemoteBranchesById")
+        return getRemoteBranches()
             .mapNotNull { branch ->
                 val commitId = getCommitIdFromRemoteRef(branch.name, remoteBranchPrefix)
                 if (commitId != null) commitId to branch else null
             }
             .toMap()
+    }
 
     fun fetch(remoteName: String) {
         logger.trace("fetch {}", remoteName)
@@ -144,18 +150,12 @@ class JGitClient(val workingDirectory: File, val remoteBranchPrefix: String = DE
         }
     }
 
-    enum class CheckoutMode { CreateBranch, CreateBranchIfNotExists, Default }
-
-    fun checkout(refName: String, mode: CheckoutMode = Default) = apply {
-        logger.trace("checkout {} ({})", refName, mode)
+    fun checkout(refName: String) = apply {
+        logger.trace("checkout {}", refName)
         useGit { git ->
             val refExists = refExists(refName)
-            if (mode == Default) {
-                require(refExists) { "$refName does not exist" }
-            } else if (mode == CreateBranch) {
-                require(!refExists) { "$refName already exists" }
-            }
-            git.checkout().setName(refName).setCreateBranch(!refExists).run {
+            require(refExists) { "$refName does not exist" }
+            git.checkout().setName(refName).run {
                 call()
                 check(result.status == CheckoutResult.Status.OK) { "Checkout result was ${result.status}" }
             }
@@ -169,35 +169,39 @@ class JGitClient(val workingDirectory: File, val remoteBranchPrefix: String = DE
         return old
     }
 
-    fun deleteBranches(names: List<String>, force: Boolean = false) = useGit { git ->
-        git.branchDelete().setBranchNames(*names.toTypedArray()).setForce(force).call()
-    }
-
-    fun init(): JGitClient = apply {
-        Git.init().setDirectory(workingDirectory).setInitialBranch("main").call().close()
-    }
-
-    fun add(filePattern: String) = apply {
-        useGit { git ->
-            git.add().addFilepattern(filePattern).call()
+    fun deleteBranches(names: List<String>, force: Boolean = false): List<String> {
+        logger.trace("deleteBranches {} {}", names, force)
+        return useGit { git ->
+            git.branchDelete().setBranchNames(*names.toTypedArray()).setForce(force).call()
         }
     }
 
-    fun commitAmend(newMessage: String? = null) = useGit { git ->
-        val message = newMessage
-            ?: git.log().add(git.repository.resolve(HEAD)).setMaxCount(1).call().single().fullMessage
-        val committer = PersonIdent(PersonIdent(git.repository), Instant.now())
-
-        git.commit().setMessage(message).setCommitter(committer).setAmend(true).call().toCommit(git)
+    fun init(): JGitClient {
+        logger.trace("init")
+        return apply {
+            Git.init().setDirectory(workingDirectory).setInitialBranch("main").call().close()
+        }
     }
 
-    fun commit(message: String, footerLines: Map<String, String> = emptyMap()) = useGit { git ->
-        val committer = PersonIdent(PersonIdent(git.repository), Instant.now())
-        git.commit().setMessage(addFooters(message, footerLines)).setCommitter(committer).call().toCommit(git)
+    fun add(filePattern: String): JGitClient {
+        logger.trace("add {}", filePattern)
+        return apply {
+            useGit { git ->
+                git.add().addFilepattern(filePattern).call()
+            }
+        }
+    }
+
+    fun commit(message: String, footerLines: Map<String, String> = emptyMap()): Commit {
+        logger.trace("commit {} {}", message, footerLines)
+        return useGit { git ->
+            val committer = PersonIdent(PersonIdent(git.repository), Instant.now())
+            git.commit().setMessage(addFooters(message, footerLines)).setCommitter(committer).call().toCommit(git)
+        }
     }
 
     fun setCommitId(commitId: String) {
-        logger.trace("setCommitId {}", commitId) // TODO add trace calls to all functions
+        logger.trace("setCommitId {}", commitId)
         useGit { git ->
             val r = git.repository
             val head = r.parseCommit(r.findRef(HEAD).objectId)
@@ -210,8 +214,11 @@ class JGitClient(val workingDirectory: File, val remoteBranchPrefix: String = DE
         }
     }
 
-    fun clone(uri: String) = apply {
-        Git.cloneRepository().setDirectory(workingDirectory).setURI(uri).call().close()
+    fun clone(uri: String): JGitClient {
+        logger.trace("clone {}", uri)
+        return apply {
+            Git.cloneRepository().setDirectory(workingDirectory).setURI(uri).call().close()
+        }
     }
 
     fun cherryPick(commit: Commit): Commit {
