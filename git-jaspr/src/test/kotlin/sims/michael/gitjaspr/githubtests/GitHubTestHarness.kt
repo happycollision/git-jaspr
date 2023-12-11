@@ -86,8 +86,8 @@ class GitHubTestHarness private constructor(
 
         val initialCommit = localGit.log(DEFAULT_TARGET_REF).last()
 
-        // TODO This saves the state of `main` so it will be restored even if moved by an "external" process
-        //   This is for functional tests so I can roll them back when done. I need a better comment here.
+        // This saves the state of `main` so it will be restored even if moved by an "external" process
+        // This is for functional tests so I can roll them back when done.
         val initialRestoreMarker = "$RESTORE_PREFIX$DEFAULT_TARGET_REF"
         if (!localGit.getBranchNames().contains(initialRestoreMarker)) {
             localGit.branch(initialRestoreMarker, startPoint = initialCommit.hash)
@@ -108,8 +108,9 @@ class GitHubTestHarness private constructor(
                 val existingHash = commitHashesByTitle[commitData.title]
                 val commit = if (existingHash != null) {
                     // A commit with this title already exists... if it's a direct child of this commit, simply check
-                    // it out. Otherwise cherry-pick it
-                    // TODO but what if this version of the commit differs? shouldn't we amend it?
+                    // it out. Otherwise cherry-pick it.
+                    // Note that we don't support amending commits, so it's not really possible to _change_ a commit
+                    // using this test harness.
                     val headHash = localGit.log("HEAD", 1).single().hash
                     val parentHashes = localGit.getParents(localGit.log(existingHash, 1).single()).map(Commit::hash)
                     if (headHash in parentHashes) {
@@ -196,10 +197,10 @@ class GitHubTestHarness private constructor(
                     baseRefName = pr.baseRef,
                     title = pr.title,
                     body = pr.body,
-                    // TODO
-                    //   This logic is incomplete. In this context, we could have PRs with multiple commits. If we want
-                    //   to support this so we can test how JASPR reacts, this logic needs to be updated to set
-                    //   checksPass only if _all_ commits in the PR will pass
+                    // This logic is incomplete. In this context, we could have PRs with multiple commits. If we want
+                    // to support this so we can test how JASPR reacts, this logic needs to be updated to set
+                    // checksPass only if _all_ commits in the PR will pass. It's unlikely that I'll make this change
+                    // but I'll leave this comment here
                     checksPass = commitsByTitle[pr.title]?.willPassVerification,
                     approved = pr.willBeApprovedByUserKey?.isNotBlank(),
                     permalink = "http://example.com",
@@ -242,8 +243,8 @@ class GitHubTestHarness private constructor(
                 RefSpec(FORCE_PUSH_PREFIX + it.groupValues[0], it.groupValues[1])
             }
 
-        // TODO this currently deletes all "jaspr/" branches indiscriminately. Much better would be to capture the ones
-        //  we created via our JGitClient and delete only those
+        // This currently deletes all "jaspr/" branches indiscriminately. Much better would be to capture the ones
+        // we created via our JGitClient and delete only those
         val deleteRegex =
             "($DELETE_PREFIX(.*)|${GitClient.R_REMOTES}$DEFAULT_REMOTE_NAME/($remoteBranchPrefix.*))"
                 .toRegex()

@@ -43,7 +43,7 @@ class GitJasprFunctionalExternalProcessTest : GitJasprTest {
             strings = listOf("push"),
             invokeLocation = localRepo,
             javaOptions = javaOptions,
-        ).lines().drop(1).joinToString("\n") // TODO Hacky, drop the first line which is debug output.
+        ).lines().drop(1).joinToString("\n") // Hacky, drop the first line which is debug output.
     }
 
     override suspend fun GitHubTestHarness.getAndPrintStatusString(refSpec: RefSpec): String {
@@ -58,7 +58,7 @@ class GitJasprFunctionalExternalProcessTest : GitJasprTest {
             invokeLocation = localRepo,
             javaOptions = javaOptions,
 
-        ).lines().drop(1).joinToString("\n") // TODO Hacky, drop the first line which is debug output.
+        ).lines().drop(1).joinToString("\n") // Hacky, drop the first line which is debug output.
     }
 
     override suspend fun GitHubTestHarness.merge(refSpec: RefSpec) {

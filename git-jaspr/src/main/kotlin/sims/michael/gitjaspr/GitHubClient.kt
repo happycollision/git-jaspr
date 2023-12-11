@@ -91,6 +91,10 @@ class GitHubClientImpl(
             .also { pullRequests -> logger.trace("getPullRequests {}: {}", pullRequests.size, pullRequests) }
     }
 
+    // There's some duplicated logic here, although the creation of the pull request isn't technically
+    // duped since CreatePullRequest.Result is different from GetPullRequests.Result even though they both
+    // contain a PullRequest type
+    @Suppress("DuplicatedCode")
     override suspend fun getPullRequestsByHeadRef(headRefName: String): List<PullRequest> {
         logger.trace("getPullRequestsByHeadRef {}", headRefName)
         val response = delegate.execute(
@@ -110,8 +114,6 @@ class GitHubClientImpl(
             .orEmpty()
             .filterNotNull()
             .map { pr ->
-                // TODO looks like duplication but isn't, strictly. Still, this could be cleaned up by creating a facade
-                //   wrapper interface
                 val commitId = getCommitIdFromRemoteRef(pr.headRefName, remoteBranchPrefix)
                 val state = pr.commits.nodes?.singleOrNull()?.commit?.statusCheckRollup?.state
                 PullRequest(
@@ -167,10 +169,6 @@ class GitHubClientImpl(
 
         checkNotNull(pr) { "createPullRequest returned a null result" }
 
-        // TODO
-        //  There's some duplicated logic here, although the creation of the pull request isn't technically
-        //  duped since CreatePullRequest.Result is different from GetPullRequests.Result even though they both
-        //  contain a PullRequest type
         val commitId = getCommitIdFromRemoteRef(pr.headRefName, remoteBranchPrefix)
         val state = pr.commits.nodes?.singleOrNull()?.commit?.statusCheckRollup?.state
         return PullRequest(
