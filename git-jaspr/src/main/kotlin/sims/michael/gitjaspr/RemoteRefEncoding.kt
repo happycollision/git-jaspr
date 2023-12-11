@@ -12,7 +12,7 @@ object RemoteRefEncoding {
     ): String = listOf(prefix, targetRef, commitId).joinToString("/")
 
     fun getRemoteRefParts(remoteRef: String, remoteBranchPrefix: String): RemoteRefParts? =
-        "^$remoteBranchPrefix/(.*/)(.*?)(?:$REV_NUM_DELIMITER(\\d+))?$"
+        "^$remoteBranchPrefix/(.*)/(.*?)(?:$REV_NUM_DELIMITER(\\d+))?$"
             .toRegex()
             .matchEntire(remoteRef)
             ?.let { result ->

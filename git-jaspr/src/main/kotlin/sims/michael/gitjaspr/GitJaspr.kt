@@ -255,9 +255,7 @@ class GitJaspr(
                 val remoteRefParts = getRemoteRefParts(it, config.remoteBranchPrefix)
                 if (remoteRefParts != null) {
                     val (targetRef, commitId, _) = remoteRefParts
-                    // TODO why is it returning with the separator?
-                    val targetRefWithoutSeparator = targetRef.trim('/')
-                    buildRemoteRef(commitId, targetRefWithoutSeparator) !in pullRequests
+                    buildRemoteRef(commitId, targetRef) !in pullRequests
                 } else {
                     false
                 }
