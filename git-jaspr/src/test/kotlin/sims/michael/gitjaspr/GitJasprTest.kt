@@ -1138,6 +1138,51 @@ commit-id: 0
             )
         }
     }
+
+    @Test
+    fun `amend HEAD commit and re-push`(testInfo: TestInfo) {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit { title = "one" }
+                        commit { title = "two" }
+                        commit {
+                            title = "three"
+                            localRefs += "development"
+                        }
+                    }
+                },
+            )
+
+            gitJaspr.push()
+
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit { title = "one" }
+                        commit { title = "two" }
+                        commit {
+                            title = "four"
+                            localRefs += "development"
+                        }
+                    }
+                },
+            )
+
+            gitJaspr.push()
+
+            val testCommits = localGit.log(GitClient.HEAD, 3)
+            val testCommitIds = testCommits.mapNotNull(Commit::id).toSet()
+            val remotePrs = gitHub.getPullRequests(testCommits)
+            val remotePrIds = remotePrs.mapNotNull(PullRequest::commitId).toSet()
+            assertEquals(testCommitIds, remotePrIds)
+
+            val headCommit = localGit.log(GitClient.HEAD, 1).single()
+            val headCommitId = checkNotNull(headCommit.id)
+            assertEquals("four", remotePrs.single { it.commitId == headCommitId }.title)
+        }
+    }
     //endregion
 
     // region pr body tests
