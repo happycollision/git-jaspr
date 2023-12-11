@@ -22,6 +22,7 @@ class GitJaspr(
 
     // TODO consider pulling the target ref from the branch name instead of requiring it on the command line
     suspend fun getStatusString(refSpec: RefSpec = RefSpec(DEFAULT_LOCAL_OBJECT, DEFAULT_TARGET_REF)): String {
+        logger.trace("getStatusString {}", refSpec)
         val remoteName = config.remoteName
         gitClient.fetch(remoteName)
 
@@ -209,6 +210,7 @@ class GitJaspr(
     }
 
     suspend fun autoMerge(refSpec: RefSpec, pollingIntervalSeconds: Int = 10) {
+        logger.trace("autoMerge {} {}", refSpec, pollingIntervalSeconds)
         while (true) {
             val remoteName = config.remoteName
             gitClient.fetch(remoteName)
@@ -243,6 +245,7 @@ class GitJaspr(
     }
 
     suspend fun clean(dryRun: Boolean) {
+        logger.trace("clean{}", if (dryRun) " (dryRun)" else "")
         val pullRequests = ghClient.getPullRequests().map(PullRequest::headRefName).toSet()
         gitClient.fetch(config.remoteName)
         val orphanedBranches = gitClient
@@ -280,6 +283,7 @@ class GitJaspr(
     }
 
     private suspend fun updateDescriptions(stack: List<Commit>, prsToMutate: List<PullRequest>) {
+        logger.trace("updateDescriptions {} {}", stack, prsToMutate)
         val stackById = stack.associateBy(Commit::id)
         val prsById = ghClient.getPullRequests(stack).associateBy { checkNotNull(it.commitId) }
         val stackPrsReordered = stack.fold(emptyList<PullRequest>()) { prs, commit ->
@@ -309,6 +313,7 @@ class GitJaspr(
         pullRequests: List<PullRequest> = emptyList(),
         currentCommitId: String? = null,
     ): String {
+        logger.trace("buildPullRequestBody")
         return buildString {
             append(trimFooters(fullMessage))
             appendLine()
@@ -331,6 +336,7 @@ class GitJaspr(
     }
 
     private fun StringBuilder.appendHistoryLinksIfApplicable(pr: PullRequest) {
+        logger.trace("appendHistoryLinksIfApplicable")
         val (host, owner, name) = config.gitHubInfo
         val regex = "^${pr.headRefName}_(\\d+)".toRegex()
         val branches = gitClient.getRemoteBranches().map(RemoteBranch::name)
@@ -354,6 +360,7 @@ class GitJaspr(
     }
 
     internal suspend fun getRemoteCommitStatuses(stack: List<Commit>): List<RemoteCommitStatus> {
+        logger.trace("getRemoteCommitStatuses")
         val remoteBranchesById = gitClient.getRemoteBranchesById()
         val prsById = if (stack.isNotEmpty()) {
             ghClient.getPullRequests(stack.filter { commit -> commit.id != null }).associateBy(PullRequest::commitId)
@@ -414,6 +421,7 @@ class GitJaspr(
     class SinglePullRequestPerCommitConstraintViolation(override val message: String) : RuntimeException(message)
 
     private fun checkSinglePullRequestPerCommit(pullRequests: List<PullRequest>): List<PullRequest> {
+        logger.trace("checkSinglePullRequestPerCommit")
         val commitsWithMultiplePrs = pullRequests
             .groupBy { pr -> checkNotNull(pr.commitId) }
             .filterValues { prs -> prs.size > 1 }
