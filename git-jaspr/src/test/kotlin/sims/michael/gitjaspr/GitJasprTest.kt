@@ -20,7 +20,9 @@ interface GitJasprTest {
 
     suspend fun GitHubTestHarness.push() = gitJaspr.push()
 
-    suspend fun GitHubTestHarness.getAndPrintStatusString() = gitJaspr.getStatusString().also(::print)
+    suspend fun GitHubTestHarness.getAndPrintStatusString(
+        refSpec: RefSpec = RefSpec(DEFAULT_LOCAL_OBJECT, DEFAULT_TARGET_REF),
+    ) = gitJaspr.getStatusString(refSpec).also(::print)
 
     suspend fun GitHubTestHarness.merge(refSpec: RefSpec) = gitJaspr.merge(refSpec)
 
@@ -635,6 +637,50 @@ interface GitJasprTest {
         }
     }
 
+    @Test
+    fun `status with non-main target branch`() {
+        withTestSetup(useFakeRemote) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                        }
+                        commit {
+                            title = "two"
+                            willPassVerification = true
+                            remoteRefs += "development"
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("three")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                },
+            )
+
+            waitForChecksToConclude("three")
+
+            val actual = getAndPrintStatusString(RefSpec("development", "development"))
+            assertEquals(
+                """
+                    |[✅✅✅✅✅] %s : three
+                """
+                    .trimMargin()
+                    .toStatusString(actual),
+                actual,
+            )
+        }
+    }
     //endregion
 
     //region push tests

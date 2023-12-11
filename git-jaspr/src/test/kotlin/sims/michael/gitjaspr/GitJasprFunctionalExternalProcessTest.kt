@@ -46,7 +46,7 @@ class GitJasprFunctionalExternalProcessTest : GitJasprTest {
         ).lines().drop(1).joinToString("\n") // TODO Hacky, drop the first line which is debug output.
     }
 
-    override suspend fun GitHubTestHarness.getAndPrintStatusString(): String {
+    override suspend fun GitHubTestHarness.getAndPrintStatusString(refSpec: RefSpec): String {
         return executeCli(
             scratchDir = scratchDir,
             remoteUri = remoteUri,
@@ -54,7 +54,7 @@ class GitJasprFunctionalExternalProcessTest : GitJasprTest {
             extraCliArgs = emptyList(),
             homeDirConfig = buildHomeDirConfig(),
             repoDirConfig = emptyMap(),
-            strings = listOf("status"),
+            strings = listOf("status", refSpec.toString()),
             invokeLocation = localRepo,
             javaOptions = javaOptions,
 
