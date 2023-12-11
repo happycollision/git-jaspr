@@ -54,7 +54,7 @@ class GitJasprFunctionalExternalProcessTest : GitJasprTest {
             extraCliArgs = emptyList(),
             homeDirConfig = buildHomeDirConfig(),
             repoDirConfig = emptyMap(),
-            strings = listOf("status", refSpec.toString()),
+            strings = listOf("status", DEFAULT_REMOTE_NAME, refSpec.toString()),
             invokeLocation = localRepo,
             javaOptions = javaOptions,
 
