@@ -172,7 +172,14 @@ class GitJaspr(
 
         val statuses = getRemoteCommitStatuses(stack)
 
-        val indexLastMergeable = statuses.indexOfLast { it.approved == true && it.checksPass == true }
+        // Do a "stack check"... find the first commit that either isn't approved or fails checks, and the one before
+        // it is the last mergeable commit.
+        val firstIndexNotMergeable = statuses.indexOfFirst { it.approved != true || it.checksPass != true }
+        val indexLastMergeable = if (firstIndexNotMergeable == -1) {
+            statuses.lastIndex
+        } else {
+            firstIndexNotMergeable - 1
+        }
         if (indexLastMergeable == -1) {
             logger.warn("No commits in your local stack are mergeable.")
             return

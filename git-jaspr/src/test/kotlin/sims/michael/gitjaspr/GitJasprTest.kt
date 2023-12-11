@@ -1684,46 +1684,68 @@ E
                 testCase {
                     repository {
                         commit {
-                            title = "one"
+                            title = "a"
                             willPassVerification = true
-                            remoteRefs += buildRemoteRef("one")
+                            remoteRefs += buildRemoteRef("a")
                         }
                         commit {
-                            title = "two"
+                            title = "b"
                             willPassVerification = true
-                            remoteRefs += buildRemoteRef("two")
+                            remoteRefs += buildRemoteRef("b")
                         }
                         commit {
-                            title = "three"
+                            title = "c"
                             willPassVerification = true
-                            remoteRefs += buildRemoteRef("three")
+                            remoteRefs += buildRemoteRef("c")
+                        }
+                        commit {
+                            title = "d"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("d")
+                        }
+                        commit {
+                            title = "e"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("e")
                             localRefs += "development"
                         }
                     }
                     pullRequest {
-                        headRef = buildRemoteRef("one")
+                        headRef = buildRemoteRef("a")
                         baseRef = "main"
-                        title = "one"
+                        title = "a"
                         willBeApprovedByUserKey = "michael"
                     }
                     pullRequest {
-                        headRef = buildRemoteRef("two")
-                        baseRef = buildRemoteRef("one")
-                        title = "two"
+                        headRef = buildRemoteRef("b")
+                        baseRef = buildRemoteRef("a")
+                        title = "b"
                         willBeApprovedByUserKey = "michael"
                     }
                     pullRequest {
-                        headRef = buildRemoteRef("three")
-                        baseRef = buildRemoteRef("two")
-                        title = "three"
+                        headRef = buildRemoteRef("c")
+                        baseRef = buildRemoteRef("b")
+                        title = "c"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("d")
+                        baseRef = buildRemoteRef("c")
+                        title = "d"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("e")
+                        baseRef = buildRemoteRef("d")
+                        title = "e"
+                        willBeApprovedByUserKey = "michael"
                     }
                 },
             )
 
-            waitForChecksToConclude("one", "two", "three")
+            waitForChecksToConclude("a", "b", "c", "d", "e")
             merge(RefSpec("development", "main"))
             assertEquals(
-                listOf("three"), // All mergeable commits were merged, leaving "three" as the only one not merged
+                // All mergeable commits were merged, leaving c, d, and e as the only one not merged
+                listOf("c", "d", "e"),
                 localGit
                     .getLocalCommitStack(DEFAULT_REMOTE_NAME, "development", DEFAULT_TARGET_REF)
                     .map(Commit::shortMessage),
