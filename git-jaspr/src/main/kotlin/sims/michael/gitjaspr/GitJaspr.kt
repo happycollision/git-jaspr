@@ -20,6 +20,60 @@ class GitJaspr(
 
     private val logger = LoggerFactory.getLogger(GitJaspr::class.java)
 
+    // TODO consider pulling the target ref from the branch name instead of requiring it on the command line
+    suspend fun getStatusString(refSpec: RefSpec = RefSpec(DEFAULT_LOCAL_OBJECT, DEFAULT_TARGET_REF)): String {
+        val remoteName = config.remoteName
+        gitClient.fetch(remoteName)
+
+        val stack = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
+        if (stack.isEmpty()) return "Stack is empty.\n"
+
+        val statuses = getRemoteCommitStatuses(stack)
+        val numCommitsBehind = gitClient.logRange(stack.last().hash, "$remoteName/${refSpec.remoteRef}").size
+        return buildString {
+            append(HEADER)
+            var stackCheck = numCommitsBehind == 0
+            for (status in statuses) {
+                append("[")
+                val statusBits = StatusBits(
+                    commitIsPushed = if (status.remoteCommit != null) SUCCESS else EMPTY,
+                    pullRequestExists = if (status.pullRequest != null) SUCCESS else EMPTY,
+                    checksPass = when {
+                        status.pullRequest == null -> EMPTY
+                        status.checksPass == null -> PENDING
+                        status.checksPass -> SUCCESS
+                        else -> FAIL
+                    },
+                    approved = when {
+                        status.pullRequest == null -> EMPTY
+                        status.approved == null -> EMPTY
+                        status.approved -> SUCCESS
+                        else -> FAIL
+                    },
+                )
+                val flags = statusBits.toList()
+                if (!flags.all { it == SUCCESS }) stackCheck = false
+                val statusList = flags + if (stackCheck) SUCCESS else EMPTY
+                append(statusList.joinToString(separator = "", transform = Status::emoji))
+                append("] ")
+                val permalink = status.pullRequest?.permalink
+                if (permalink != null) {
+                    append(status.pullRequest.permalink)
+                    append(" : ")
+                }
+                appendLine(status.localCommit.shortMessage)
+            }
+            if (numCommitsBehind > 0) {
+                appendLine()
+                append("Your stack is out-of-date with the base branch ")
+                val commits = if (numCommitsBehind > 1) "commits" else "commit"
+                appendLine("($numCommitsBehind $commits behind ${refSpec.remoteRef}).")
+                append("You'll need to rebase it (`git rebase $remoteName/${refSpec.remoteRef}`) ")
+                appendLine("before your stack will be mergeable.")
+            }
+        }
+    }
+
     // git jaspr push [[local-object:]target-ref]
     suspend fun push(refSpec: RefSpec = RefSpec(DEFAULT_LOCAL_OBJECT, DEFAULT_TARGET_REF)) {
         logger.trace("push {}", refSpec)
@@ -92,6 +146,137 @@ class GitJaspr(
         // Update pull request descriptions (has to be done in a second pass because we don't have the GH-assigned PR
         // numbers until the first creation pass)
         updateDescriptions(stack, prsToMutate)
+    }
+
+    suspend fun merge(refSpec: RefSpec) {
+        logger.trace("merge {}", refSpec)
+        val remoteName = config.remoteName
+        gitClient.fetch(remoteName)
+
+        val numCommitsBehind = gitClient.logRange(refSpec.localRef, "$remoteName/${refSpec.remoteRef}").size
+        if (numCommitsBehind > 0) {
+            val commits = if (numCommitsBehind > 1) "commits" else "commit"
+            logger.warn(
+                "Cannot merge because your stack is out-of-date with the base branch ({} {} behind {}).",
+                numCommitsBehind,
+                commits,
+                refSpec.remoteRef,
+            )
+            return
+        }
+
+        val stack = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
+        if (stack.isEmpty()) {
+            logger.warn("Stack is empty.")
+            return
+        }
+
+        val statuses = getRemoteCommitStatuses(stack)
+
+        val indexLastMergeable = statuses.indexOfLast { it.approved == true && it.checksPass == true }
+        if (indexLastMergeable == -1) {
+            logger.warn("No commits in your local stack are mergeable.")
+            return
+        }
+
+        val prs = ghClient.getPullRequests()
+        val branchesToDelete =
+            getBranchesToDeleteDuringMerge(stack.slice(0..indexLastMergeable), refSpec.remoteRef, prs)
+
+        val lastMergeableStatus = statuses[indexLastMergeable]
+        val lastPr = checkNotNull(lastMergeableStatus.pullRequest)
+        if (lastPr.baseRefName != refSpec.remoteRef) {
+            logger.trace("Rebase {} onto {} in prep for merge", lastPr, refSpec.remoteRef)
+            ghClient.updatePullRequest(lastPr.copy(baseRefName = refSpec.remoteRef))
+        }
+
+        val refSpecs = listOf(RefSpec(lastMergeableStatus.localCommit.hash, refSpec.remoteRef))
+        gitClient.push(refSpecs + branchesToDelete)
+        logger.info("Merged {} ref(s) to {}", indexLastMergeable + 1, refSpec.remoteRef)
+
+        val prsToClose = statuses.slice(0..indexLastMergeable).mapNotNull(RemoteCommitStatus::pullRequest)
+        for (pr in prsToClose) {
+            ghClient.closePullRequest(pr)
+        }
+
+        val lastMergedRef = stack[indexLastMergeable].toRemoteRefName()
+        val prsToRebase =
+            prs.filter { it.baseRefName == lastMergedRef }.map { it.copy(baseRefName = refSpec.remoteRef) }
+        logger.trace("Rebasing {} prs to {}", prsToRebase.size, refSpec.remoteRef)
+        for (pr in prsToRebase) {
+            ghClient.updatePullRequest(pr)
+        }
+    }
+
+    suspend fun autoMerge(refSpec: RefSpec, pollingIntervalSeconds: Int = 10) {
+        while (true) {
+            val remoteName = config.remoteName
+            gitClient.fetch(remoteName)
+
+            val numCommitsBehind = gitClient.logRange(refSpec.localRef, "$remoteName/${refSpec.remoteRef}").size
+            if (numCommitsBehind > 0) {
+                val commits = if (numCommitsBehind > 1) "commits" else "commit"
+                logger.warn(
+                    "Cannot merge because your stack is out-of-date with the base branch ({} {} behind {}).",
+                    numCommitsBehind,
+                    commits,
+                    refSpec.remoteRef,
+                )
+                break
+            }
+
+            val stack = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
+            if (stack.isEmpty()) {
+                logger.warn("Stack is empty.")
+                break
+            }
+
+            val statuses = getRemoteCommitStatuses(stack)
+            if (statuses.all { status -> status.approved == true && status.checksPass == true }) {
+                merge(refSpec)
+                break
+            }
+            print(getStatusString(refSpec))
+            logger.info("Delaying for $pollingIntervalSeconds seconds... (CTRL-C to cancel)")
+            delay(pollingIntervalSeconds.seconds)
+        }
+    }
+
+    suspend fun clean(dryRun: Boolean) {
+        val pullRequests = ghClient.getPullRequests().map(PullRequest::headRefName).toSet()
+        gitClient.fetch(config.remoteName)
+        val orphanedBranches = gitClient
+            .getRemoteBranches()
+            .map(RemoteBranch::name)
+            .filter {
+                val remoteRefParts = getRemoteRefParts(it, config.remoteBranchPrefix)
+                if (remoteRefParts != null) {
+                    val (targetRef, commitId, _) = remoteRefParts
+                    // TODO why is it returning with the separator?
+                    val targetRefWithoutSeparator = targetRef.trim('/')
+                    buildRemoteRef(commitId, targetRefWithoutSeparator) !in pullRequests
+                } else {
+                    false
+                }
+            }
+        for (branch in orphanedBranches) {
+            logger.info("{} is orphaned", branch)
+        }
+        if (!dryRun) {
+            logger.info("Deleting {} branch(es)", orphanedBranches.size)
+            gitClient.push(orphanedBranches.map { RefSpec("+", it) })
+        }
+    }
+
+    fun installCommitIdHook() {
+        logger.trace("installCommitIdHook")
+        val hooksDir = config.workingDirectory.resolve(".git").resolve("hooks")
+        require(hooksDir.isDirectory)
+        val hook = hooksDir.resolve(COMMIT_MSG_HOOK)
+        val source = checkNotNull(javaClass.getResourceAsStream("/$COMMIT_MSG_HOOK"))
+        logger.info("Installing/overwriting {} to {} and setting the executable bit", COMMIT_MSG_HOOK, hook)
+        source.use { inStream -> hook.outputStream().use { outStream -> inStream.copyTo(outStream) } }
+        check(hook.setExecutable(true)) { "Failed to set the executable bit on $hook" }
     }
 
     private suspend fun updateDescriptions(stack: List<Commit>, prsToMutate: List<PullRequest>) {
@@ -168,7 +353,7 @@ class GitJaspr(
         }
     }
 
-    suspend fun getRemoteCommitStatuses(stack: List<Commit>): List<RemoteCommitStatus> {
+    internal suspend fun getRemoteCommitStatuses(stack: List<Commit>): List<RemoteCommitStatus> {
         val remoteBranchesById = gitClient.getRemoteBranchesById()
         val prsById = if (stack.isNotEmpty()) {
             ghClient.getPullRequests(stack.filter { commit -> commit.id != null }).associateBy(PullRequest::commitId)
@@ -185,154 +370,6 @@ class GitJaspr(
                     approved = prsById[commit.id]?.approved,
                 )
             }
-    }
-
-    // TODO consider pulling the target ref from the branch name instead of requiring it on the command line
-    suspend fun getStatusString(refSpec: RefSpec = RefSpec(DEFAULT_LOCAL_OBJECT, DEFAULT_TARGET_REF)): String {
-        val remoteName = config.remoteName
-        gitClient.fetch(remoteName)
-
-        val stack = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
-        if (stack.isEmpty()) return "Stack is empty.\n"
-
-        val statuses = getRemoteCommitStatuses(stack)
-        val numCommitsBehind = gitClient.logRange(stack.last().hash, "$remoteName/${refSpec.remoteRef}").size
-        return buildString {
-            append(HEADER)
-            var stackCheck = numCommitsBehind == 0
-            for (status in statuses) {
-                append("[")
-                val statusBits = StatusBits(
-                    commitIsPushed = if (status.remoteCommit != null) SUCCESS else EMPTY,
-                    pullRequestExists = if (status.pullRequest != null) SUCCESS else EMPTY,
-                    checksPass = when {
-                        status.pullRequest == null -> EMPTY
-                        status.checksPass == null -> PENDING
-                        status.checksPass -> SUCCESS
-                        else -> FAIL
-                    },
-                    approved = when {
-                        status.pullRequest == null -> EMPTY
-                        status.approved == null -> EMPTY
-                        status.approved -> SUCCESS
-                        else -> FAIL
-                    },
-                )
-                val flags = statusBits.toList()
-                if (!flags.all { it == SUCCESS }) stackCheck = false
-                val statusList = flags + if (stackCheck) SUCCESS else EMPTY
-                append(statusList.joinToString(separator = "", transform = Status::emoji))
-                append("] ")
-                val permalink = status.pullRequest?.permalink
-                if (permalink != null) {
-                    append(status.pullRequest.permalink)
-                    append(" : ")
-                }
-                appendLine(status.localCommit.shortMessage)
-            }
-            if (numCommitsBehind > 0) {
-                appendLine()
-                append("Your stack is out-of-date with the base branch ")
-                val commits = if (numCommitsBehind > 1) "commits" else "commit"
-                appendLine("($numCommitsBehind $commits behind ${refSpec.remoteRef}).")
-                append("You'll need to rebase it (`git rebase $remoteName/${refSpec.remoteRef}`) ")
-                appendLine("before your stack will be mergeable.")
-            }
-        }
-    }
-
-    suspend fun autoMerge(refSpec: RefSpec, pollingIntervalSeconds: Int = 10) {
-        while (true) {
-            val remoteName = config.remoteName
-            gitClient.fetch(remoteName)
-
-            val numCommitsBehind = gitClient.logRange(refSpec.localRef, "$remoteName/${refSpec.remoteRef}").size
-            if (numCommitsBehind > 0) {
-                val commits = if (numCommitsBehind > 1) "commits" else "commit"
-                logger.warn(
-                    "Cannot merge because your stack is out-of-date with the base branch ({} {} behind {}).",
-                    numCommitsBehind,
-                    commits,
-                    refSpec.remoteRef,
-                )
-                break
-            }
-
-            val stack = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
-            if (stack.isEmpty()) {
-                logger.warn("Stack is empty.")
-                break
-            }
-
-            val statuses = getRemoteCommitStatuses(stack)
-            if (statuses.all { status -> status.approved == true && status.checksPass == true }) {
-                merge(refSpec)
-                break
-            }
-            print(getStatusString(refSpec))
-            logger.info("Delaying for $pollingIntervalSeconds seconds... (CTRL-C to cancel)")
-            delay(pollingIntervalSeconds.seconds)
-        }
-    }
-
-    suspend fun merge(refSpec: RefSpec) {
-        logger.trace("merge {}", refSpec)
-        val remoteName = config.remoteName
-        gitClient.fetch(remoteName)
-
-        val numCommitsBehind = gitClient.logRange(refSpec.localRef, "$remoteName/${refSpec.remoteRef}").size
-        if (numCommitsBehind > 0) {
-            val commits = if (numCommitsBehind > 1) "commits" else "commit"
-            logger.warn(
-                "Cannot merge because your stack is out-of-date with the base branch ({} {} behind {}).",
-                numCommitsBehind,
-                commits,
-                refSpec.remoteRef,
-            )
-            return
-        }
-
-        val stack = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, refSpec.remoteRef)
-        if (stack.isEmpty()) {
-            logger.warn("Stack is empty.")
-            return
-        }
-
-        val statuses = getRemoteCommitStatuses(stack)
-
-        val indexLastMergeable = statuses.indexOfLast { it.approved == true && it.checksPass == true }
-        if (indexLastMergeable == -1) {
-            logger.warn("No commits in your local stack are mergeable.")
-            return
-        }
-
-        val prs = ghClient.getPullRequests()
-        val branchesToDelete =
-            getBranchesToDeleteDuringMerge(stack.slice(0..indexLastMergeable), refSpec.remoteRef, prs)
-
-        val lastMergeableStatus = statuses[indexLastMergeable]
-        val lastPr = checkNotNull(lastMergeableStatus.pullRequest)
-        if (lastPr.baseRefName != refSpec.remoteRef) {
-            logger.trace("Rebase {} onto {} in prep for merge", lastPr, refSpec.remoteRef)
-            ghClient.updatePullRequest(lastPr.copy(baseRefName = refSpec.remoteRef))
-        }
-
-        val refSpecs = listOf(RefSpec(lastMergeableStatus.localCommit.hash, refSpec.remoteRef))
-        gitClient.push(refSpecs + branchesToDelete)
-        logger.info("Merged {} ref(s) to {}", indexLastMergeable + 1, refSpec.remoteRef)
-
-        val prsToClose = statuses.slice(0..indexLastMergeable).mapNotNull(RemoteCommitStatus::pullRequest)
-        for (pr in prsToClose) {
-            ghClient.closePullRequest(pr)
-        }
-
-        val lastMergedRef = stack[indexLastMergeable].toRemoteRefName()
-        val prsToRebase =
-            prs.filter { it.baseRefName == lastMergedRef }.map { it.copy(baseRefName = refSpec.remoteRef) }
-        logger.trace("Rebasing {} prs to {}", prsToRebase.size, refSpec.remoteRef)
-        for (pr in prsToRebase) {
-            ghClient.updatePullRequest(pr)
-        }
     }
 
     private fun getBranchesToDeleteDuringMerge(
@@ -372,43 +409,6 @@ class GitJaspr(
             .map { branchName -> RefSpec("+", branchName) }
         logger.trace("Deletion list {}", branchesToDelete)
         return branchesToDelete
-    }
-
-    fun installCommitIdHook() {
-        logger.trace("installCommitIdHook")
-        val hooksDir = config.workingDirectory.resolve(".git").resolve("hooks")
-        require(hooksDir.isDirectory)
-        val hook = hooksDir.resolve(COMMIT_MSG_HOOK)
-        val source = checkNotNull(javaClass.getResourceAsStream("/$COMMIT_MSG_HOOK"))
-        logger.info("Installing/overwriting {} to {} and setting the executable bit", COMMIT_MSG_HOOK, hook)
-        source.use { inStream -> hook.outputStream().use { outStream -> inStream.copyTo(outStream) } }
-        check(hook.setExecutable(true)) { "Failed to set the executable bit on $hook" }
-    }
-
-    suspend fun clean(dryRun: Boolean) {
-        val pullRequests = ghClient.getPullRequests().map(PullRequest::headRefName).toSet()
-        gitClient.fetch(config.remoteName)
-        val orphanedBranches = gitClient
-            .getRemoteBranches()
-            .map(RemoteBranch::name)
-            .filter {
-                val remoteRefParts = getRemoteRefParts(it, config.remoteBranchPrefix)
-                if (remoteRefParts != null) {
-                    val (targetRef, commitId, _) = remoteRefParts
-                    // TODO why is it returning with the separator?
-                    val targetRefWithoutSeparator = targetRef.trim('/')
-                    buildRemoteRef(commitId, targetRefWithoutSeparator) !in pullRequests
-                } else {
-                    false
-                }
-            }
-        for (branch in orphanedBranches) {
-            logger.info("{} is orphaned", branch)
-        }
-        if (!dryRun) {
-            logger.info("Deleting {} branch(es)", orphanedBranches.size)
-            gitClient.push(orphanedBranches.map { RefSpec("+", it) })
-        }
     }
 
     class SinglePullRequestPerCommitConstraintViolation(override val message: String) : RuntimeException(message)
