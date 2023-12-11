@@ -14,13 +14,13 @@ interface AppWiring {
     val gitJaspr: GitJaspr
     val config: Config
     val json: Json
-    val gitClient: JGitClient
+    val gitClient: GitClient
 }
 
 class DefaultAppWiring(
     githubToken: String,
     override val config: Config,
-    override val gitClient: JGitClient,
+    override val gitClient: GitClient,
 ) : AppWiring {
 
     private val gitHubClientWiring = GitHubClientWiring(githubToken, config.gitHubInfo, config.remoteBranchPrefix)

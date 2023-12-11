@@ -818,8 +818,8 @@ commit-id: 0
                     assertTrue(
                         localGit
                             .logRange(
-                                "${JGitClient.HEAD}~$numCommits",
-                                JGitClient.HEAD,
+                                "${GitClient.HEAD}~$numCommits",
+                                GitClient.HEAD,
                             )
                             .mapNotNull(Commit::id)
                             .filter(String::isNotBlank)
@@ -1050,7 +1050,7 @@ commit-id: 0
 
             val prs = remotePrs.map { pullRequest -> pullRequest.baseRefName to pullRequest.headRefName }.toSet()
             val commits = localGit
-                .log(JGitClient.HEAD, 6)
+                .log(GitClient.HEAD, 6)
                 .reversed()
                 .windowedPairs()
                 .map { (prevCommit, currentCommit) ->

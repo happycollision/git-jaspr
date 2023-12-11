@@ -30,8 +30,8 @@ class GitHubTestHarness private constructor(
     private val useFakeRemote: Boolean = true,
 ) {
 
-    val localGit: JGitClient = JGitClient(localRepo)
-    private val remoteGit: JGitClient = JGitClient(remoteRepo)
+    val localGit: GitClient = JGitClient(localRepo)
+    private val remoteGit: GitClient = JGitClient(remoteRepo)
 
     private val ghClientsByUserKey: Map<String, GitHubClient> by lazy {
         if (!useFakeRemote) {
@@ -245,7 +245,7 @@ class GitHubTestHarness private constructor(
         // TODO this currently deletes all "jaspr/" branches indiscriminately. Much better would be to capture the ones
         //  we created via our JGitClient and delete only those
         val deleteRegex =
-            "($DELETE_PREFIX(.*)|${JGitClient.R_REMOTES}$DEFAULT_REMOTE_NAME/($remoteBranchPrefix.*))"
+            "($DELETE_PREFIX(.*)|${GitClient.R_REMOTES}$DEFAULT_REMOTE_NAME/($remoteBranchPrefix.*))"
                 .toRegex()
 
         val toDelete = localGit.getBranchNames()
@@ -288,7 +288,7 @@ class GitHubTestHarness private constructor(
         }
     }
 
-    private fun JGitClient.createInitialCommit() = apply {
+    private fun GitClient.createInitialCommit() = apply {
         val repoDir = workingDirectory
         val readme = "README.txt"
         val readmeFile = repoDir.resolve(readme)

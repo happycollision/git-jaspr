@@ -252,14 +252,14 @@ abstract class GitJasprCommand(help: String = "", hidden: Boolean = false) :
         DefaultAppWiring(githubToken, config, gitClient)
     }
 
-    private fun determineGithubInfo(jGitClient: JGitClient): GitHubInfo {
+    private fun determineGithubInfo(gitClient: GitClient): GitHubInfo {
         val host = gitHubOptions.githubHost
         val owner = gitHubOptions.repoOwner
         val name = gitHubOptions.repoName
         return if (host != null && owner != null && name != null) {
             GitHubInfo(host, owner, name)
         } else {
-            val remoteUri = requireNotNull(jGitClient.getRemoteUriOrNull(remoteName)) {
+            val remoteUri = requireNotNull(gitClient.getRemoteUriOrNull(remoteName)) {
                 "Couldn't determine URI for remote named $remoteName"
             }
             val fromUri = requireNotNull(extractGitHubInfoFromUri(remoteUri)) {
@@ -404,7 +404,7 @@ object Cli {
 
 const val WORKING_DIR_PROPERTY_NAME = "git-jaspr-working-dir"
 const val CONFIG_FILE_NAME = ".git-jaspr.properties"
-const val DEFAULT_LOCAL_OBJECT = JGitClient.HEAD
+const val DEFAULT_LOCAL_OBJECT = GitClient.HEAD
 const val DEFAULT_TARGET_REF = "main"
 const val DEFAULT_REMOTE_NAME = "origin"
 const val COMMIT_ID_LABEL = "commit-id"

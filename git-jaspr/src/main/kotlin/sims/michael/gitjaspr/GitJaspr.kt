@@ -13,7 +13,7 @@ import kotlin.time.Duration.Companion.seconds
 
 class GitJaspr(
     private val ghClient: GitHubClient,
-    private val gitClient: JGitClient,
+    private val gitClient: GitClient,
     private val config: Config,
     private val newUuid: () -> String = { generateUuid() },
 ) {

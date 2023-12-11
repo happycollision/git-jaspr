@@ -6,7 +6,7 @@ import sims.michael.gitjaspr.Commit
 import sims.michael.gitjaspr.PullRequest
 import sims.michael.gitjaspr.RemoteRefEncoding.getCommitIdFromRemoteRef
 
-class GitHubStubClient(private val remoteBranchPrefix: String, private val localGit: JGitClient) : GitHubClient {
+class GitHubStubClient(private val remoteBranchPrefix: String, private val localGit: GitClient) : GitHubClient {
 
     private val logger = LoggerFactory.getLogger(GitHubStubClient::class.java)
 

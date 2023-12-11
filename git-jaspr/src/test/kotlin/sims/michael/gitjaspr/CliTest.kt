@@ -259,7 +259,7 @@ private fun getEffectiveConfigFromCli(
         repoDirConfig,
         listOf("status", "--show-config", remoteName),
         invokeLocation,
-    ),
+    ).also { println(it) },
 )
 
 object ExecuteCli { // Wrapper object so we can have a logger with a sensible name
