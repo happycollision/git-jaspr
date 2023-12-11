@@ -12,6 +12,7 @@ import sims.michael.gitjaspr.Commit
 import sims.michael.gitjaspr.Ident
 import sims.michael.gitjaspr.PullRequest
 import sims.michael.gitjaspr.RemoteRefEncoding.DEFAULT_REMOTE_BRANCH_PREFIX
+import sims.michael.gitjaspr.RemoteRefEncoding.getRemoteRefParts
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
@@ -188,10 +189,7 @@ class GitHubTestHarness private constructor(
                 val gitHubClient = (ghClientsByUserKey[pr.userKey] ?: gitHub)
                 val newPullRequest = PullRequest(
                     id = null,
-                    // TODO
-                    //  This logic is suspect. We should be pulling the commit ID from the headRef or from the
-                    //  footer lines.
-                    commitId = commitsByTitle[pr.title]?.id,
+                    commitId = getRemoteRefParts(pr.headRef, remoteBranchPrefix)?.commitId,
                     number = null,
                     headRefName = pr.headRef,
                     baseRefName = pr.baseRef,
