@@ -316,7 +316,7 @@ class GitJaspr(
         pullRequests: List<PullRequest> = emptyList(),
         currentCommitId: String? = null,
     ): String {
-        logger.trace("buildPullRequestBody")
+        val remoteBranches: List<String> = gitClient.getRemoteBranches().map(RemoteBranch::name)
         return buildString {
             append(trimFooters(fullMessage))
             appendLine()
@@ -328,7 +328,7 @@ class GitJaspr(
                         append(" ⬅")
                     }
                     appendLine()
-                    appendHistoryLinksIfApplicable(pr)
+                    appendHistoryLinksIfApplicable(pr, remoteBranches)
                 }
                 appendLine()
             }
@@ -338,12 +338,10 @@ class GitJaspr(
         }
     }
 
-    private fun StringBuilder.appendHistoryLinksIfApplicable(pr: PullRequest) {
-        logger.trace("appendHistoryLinksIfApplicable")
+    private fun StringBuilder.appendHistoryLinksIfApplicable(pr: PullRequest, remoteBranches: List<String>) {
         val (host, owner, name) = config.gitHubInfo
         val regex = "^${pr.headRefName}_(\\d+)".toRegex()
-        val branches = gitClient.getRemoteBranches().map(RemoteBranch::name)
-        val historyRefs = branches.filter { regex.matchEntire(it) != null }.sorted().reversed()
+        val historyRefs = remoteBranches.filter { regex.matchEntire(it) != null }.sorted().reversed()
         if (historyRefs.isNotEmpty()) {
             append("  - ")
             val historyPairs = listOf(pr.headRefName) + historyRefs

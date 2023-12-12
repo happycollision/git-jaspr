@@ -8,11 +8,9 @@ import sims.michael.gitjaspr.githubtests.GitHubTestHarness
 import sims.michael.gitjaspr.githubtests.GitHubTestHarness.Companion.withTestSetup
 import sims.michael.gitjaspr.githubtests.TestCaseData
 import sims.michael.gitjaspr.githubtests.generatedtestdsl.testCase
+import java.util.MissingFormatArgumentException
 import kotlin.test.assertEquals
 
-// TODO
-//   Some of these tests fail when ran as one of the functional test implementations due to the expected strings not
-//   being properly parameterized for things like the github URI and the auto-assigned PR numbers. Need to fix this.
 interface GitJasprTest {
 
     val logger: Logger
@@ -1204,39 +1202,41 @@ commit-id: 0
             )
             push()
 
+            val actual = gitHub.getPullRequests().map(PullRequest::body)
+            val actualIterator = actual.iterator()
             assertEquals(
                 listOf(
                     """
 1
 
 **Stack**:
-- #2
-- #1
-- #0 ⬅
+- %s
+- %s
+- %s ⬅
 
-                    """.trimIndent().toPrBodyString(),
+                    """.trimIndent().toPrBodyString(actualIterator.next()),
                     """
 2
 
 **Stack**:
-- #2
-- #1 ⬅
-- #0
+- %s
+- %s ⬅
+- %s
 
-                    """.trimIndent().toPrBodyString(),
+                    """.trimIndent().toPrBodyString(actualIterator.next()),
                     """
 3
 
 This is a body
 
 **Stack**:
-- #2 ⬅
-- #1
-- #0
+- %s ⬅
+- %s
+- %s
 
-                    """.trimIndent().toPrBodyString(),
+                    """.trimIndent().toPrBodyString(actualIterator.next()),
                 ),
-                gitHub.getPullRequests().map(PullRequest::body),
+                actual,
             )
         }
     }
@@ -1279,117 +1279,119 @@ This is a body
 
             push()
 
+            val actual = gitHub.getPullRequests().map(PullRequest::body)
+            val actualIterator = actual.iterator()
             assertEquals(
                 listOf(
                     """
 A
 
 **Stack**:
-- #6
-- #0 ⬅
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A)
-- #1
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B)
-- #5
-- #2
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/C_01..jaspr/main/C)
-- #4
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/E_01..jaspr/main/E)
+- %s
+- %s ⬅
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/A_01..jaspr/main/A)
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/B_01..jaspr/main/B)
+- %s
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/C_01..jaspr/main/C)
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/E_01..jaspr/main/E)
 
-                    """.trimIndent().toPrBodyString(),
+                    """.trimIndent().toPrBodyString(actualIterator.next()),
                     """
 B
 
 **Stack**:
-- #6
-- #0
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A)
-- #1 ⬅
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B)
-- #5
-- #2
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/C_01..jaspr/main/C)
-- #4
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/E_01..jaspr/main/E)
+- %s
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/A_01..jaspr/main/A)
+- %s ⬅
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/B_01..jaspr/main/B)
+- %s
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/C_01..jaspr/main/C)
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/E_01..jaspr/main/E)
 
-                    """.trimIndent().toPrBodyString(),
+                    """.trimIndent().toPrBodyString(actualIterator.next()),
                     """
 C
 
 **Stack**:
-- #6
-- #0
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A)
-- #1
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B)
-- #5
-- #2 ⬅
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/C_01..jaspr/main/C)
-- #4
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/E_01..jaspr/main/E)
+- %s
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/A_01..jaspr/main/A)
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/B_01..jaspr/main/B)
+- %s
+- %s ⬅
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/C_01..jaspr/main/C)
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/E_01..jaspr/main/E)
 
-                    """.trimIndent().toPrBodyString(),
+                    """.trimIndent().toPrBodyString(actualIterator.next()),
                     """
 D
 
 **Stack**:
-- #4
-- #3 ⬅
-- #2
-- #1
-- #0
+- %s
+- %s ⬅
+- %s
+- %s
+- %s
 
-                    """.trimIndent().toPrBodyString(),
+                    """.trimIndent().toPrBodyString(actualIterator.next()),
                     """
 E
 
 **Stack**:
-- #6
-- #0
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A)
-- #1
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B)
-- #5
-- #2
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/C_01..jaspr/main/C)
-- #4 ⬅
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/E_01..jaspr/main/E)
+- %s
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/A_01..jaspr/main/A)
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/B_01..jaspr/main/B)
+- %s
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/C_01..jaspr/main/C)
+- %s ⬅
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/E_01..jaspr/main/E)
 
-                    """.trimIndent().toPrBodyString(),
+                    """.trimIndent().toPrBodyString(actualIterator.next()),
                     """
 one
 
 **Stack**:
-- #6
-- #0
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A)
-- #1
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B)
-- #5 ⬅
-- #2
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/C_01..jaspr/main/C)
-- #4
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/E_01..jaspr/main/E)
+- %s
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/A_01..jaspr/main/A)
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/B_01..jaspr/main/B)
+- %s ⬅
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/C_01..jaspr/main/C)
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/E_01..jaspr/main/E)
 
-                    """.trimIndent().toPrBodyString(),
+                    """.trimIndent().toPrBodyString(actualIterator.next()),
                     """
 two
 
 **Stack**:
-- #6 ⬅
-- #0
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/A_01..jaspr/main/A)
-- #1
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/B_01..jaspr/main/B)
-- #5
-- #2
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/C_01..jaspr/main/C)
-- #4
-  - [01..Current](https://example.com/SomeOwner/SomeRepo/compare/jaspr/main/E_01..jaspr/main/E)
+- %s ⬅
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/A_01..jaspr/main/A)
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/B_01..jaspr/main/B)
+- %s
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/C_01..jaspr/main/C)
+- %s
+  - [01..Current](https://%s/%s/%s/compare/jaspr/main/E_01..jaspr/main/E)
 
-                    """.trimIndent().toPrBodyString(),
+                    """.trimIndent().toPrBodyString(actualIterator.next()),
                 ),
-                gitHub.getPullRequests().map(PullRequest::body),
+                actual,
             )
         }
     }
@@ -1442,55 +1444,57 @@ two
 
             push()
 
+            val actual = gitHub.getPullRequests().map(PullRequest::body)
+            val actualIterator = actual.iterator()
             assertEquals(
                 listOf(
                     """
 A
 
 **Stack**:
-- #4
-- #1
-- #0 ⬅
+- %s
+- %s
+- %s ⬅
 
-                    """.trimIndent().toPrBodyString(),
+                    """.trimIndent().toPrBodyString(actualIterator.next()),
                     """
 B
 
 **Stack**:
-- #4
-- #1 ⬅
-- #0
+- %s
+- %s ⬅
+- %s
 
-                    """.trimIndent().toPrBodyString(),
+                    """.trimIndent().toPrBodyString(actualIterator.next()),
                     """
 C
 
 **Stack**:
-- #2 ⬅
-- #1
-- #0
+- %s ⬅
+- %s
+- %s
 
-                    """.trimIndent().toPrBodyString(),
+                    """.trimIndent().toPrBodyString(actualIterator.next()),
                     """
 D
 
 **Stack**:
-- #3 ⬅
-- #1
-- #0
+- %s ⬅
+- %s
+- %s
 
-                    """.trimIndent().toPrBodyString(),
+                    """.trimIndent().toPrBodyString(actualIterator.next()),
                     """
 E
 
 **Stack**:
-- #4 ⬅
-- #1
-- #0
+- %s ⬅
+- %s
+- %s
 
-                    """.trimIndent().toPrBodyString(),
+                    """.trimIndent().toPrBodyString(actualIterator.next()),
                 ),
-                gitHub.getPullRequests().map(PullRequest::body),
+                actual,
             )
         }
     }
@@ -2261,29 +2265,60 @@ E
             )
         }
     }
-}
 
-// It may seem silly to repeat what is already defined in GitJaspr.HEADER, but if a dev changes the header I want
-// these tests to break so that any such changes are very deliberate. This is a compromise between referencing the
-// same value from both tests and prod and the other extreme of repeating this header text manually in every test.
-fun String.toStatusString(actual: String): String {
-    // Extract URLs from the actual string and put them into the expected. For functional tests I can't predict what
-    // they will be, so I only want to validate that they are present.
-    val urls = "(http.*) :".toRegex().findAll(actual).map { result -> result.groupValues[1] }.toList()
+    // It may seem silly to repeat what is already defined in GitJaspr.HEADER, but if a dev changes the header I want
+    // these tests to break so that any such changes are very deliberate. This is a compromise between referencing the
+    // same value from both tests and prod and the other extreme of repeating this header text manually in every test.
+    fun String.toStatusString(actual: String): String {
+        // Extract URLs from the actual string and put them into the expected. For functional tests I can't predict what
+        // they will be, so I only want to validate that they are present.
+        val urls = "(http.*) :".toRegex().findAll(actual).map { result -> result.groupValues[1] }.toList()
 
-    return """
+        val formattedString = try {
+            format(*urls.toTypedArray())
+        } catch (e: MissingFormatArgumentException) {
+            logger.error("Format string doesn't have enough arguments, should have {}", urls.size)
+            this
+        }
+        return """
             | ┌─ commit is pushed
             | │ ┌─ pull request exists
             | │ │ ┌─ github checks pass
             | │ │ │ ┌── pull request approved
             | │ │ │ │ ┌─── stack check
             | │ │ │ │ │
-            |${this.format(*urls.toTypedArray())}
+            |$formattedString
 
-    """.trimMargin()
+        """.trimMargin()
+    }
+
+    // Much like toStatusString above, this repeats the PR body footer. See notes there for the rationale.
+    fun String.toPrBodyString(actual: String = ""): String {
+        val numRegex = "^- (#\\d+)(?: ⬅)?$".toRegex()
+        val historyLineRegex = "^ {2}- (?:\\[.*]\\(https?://(.*?)/(.*?)/(.*?)/compare/jaspr.*?\\)(?:, )?)+".toRegex()
+        val list = actual
+            .lines()
+            .fold(emptyList<String>()) { list, line ->
+                val numRegexResult = numRegex.matchEntire(line)
+                val historyLineRegexResult = historyLineRegex.matchEntire(line)
+                when {
+                    numRegexResult != null -> {
+                        list + numRegexResult.groupValues[1]
+                    }
+                    historyLineRegexResult != null -> {
+                        list + historyLineRegexResult.groupValues.drop(1)
+                    }
+                    else -> list
+                }
+            }
+        val formattedString = try {
+            format(*list.toTypedArray())
+        } catch (e: MissingFormatArgumentException) {
+            logger.error("Format string doesn't have enough arguments, should have {}", list.size)
+            this
+        }
+        return "$formattedString\n" +
+            "⚠️ *Part of a stack created by [jaspr](https://github.com/MichaelSims/git-jaspr). " +
+            "Do not merge manually using the UI - doing so may have unexpected results.*\n"
+    }
 }
-
-// Much like toStatusString above, this repeats the PR body footer. See notes there for the rationale.
-fun String.toPrBodyString(): String = "${this}\n" +
-    "⚠️ *Part of a stack created by [jaspr](https://github.com/MichaelSims/git-jaspr). " +
-    "Do not merge manually using the UI - doing so may have unexpected results.*\n"
