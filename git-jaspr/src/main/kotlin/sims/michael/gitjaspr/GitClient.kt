@@ -1,5 +1,9 @@
 package sims.michael.gitjaspr
 
+import com.jcraft.jsch.AgentIdentityRepository
+import com.jcraft.jsch.IdentityRepository
+import com.jcraft.jsch.JSch
+import com.jcraft.jsch.SSHAgentConnector
 import org.eclipse.jgit.api.CheckoutResult
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.api.ListBranchCommand
@@ -9,6 +13,8 @@ import org.eclipse.jgit.lib.PersonIdent
 import org.eclipse.jgit.revwalk.RevCommit
 import org.eclipse.jgit.transport.PushResult
 import org.eclipse.jgit.transport.RemoteRefUpdate.Status
+import org.eclipse.jgit.transport.SshSessionFactory
+import org.eclipse.jgit.transport.ssh.jsch.JschConfigSessionFactory
 import org.slf4j.LoggerFactory
 import sims.michael.gitjaspr.CommitFooters.addFooters
 import sims.michael.gitjaspr.CommitFooters.getFooters
@@ -303,6 +309,20 @@ class JGitClient(
 
     companion object {
         private val SUCCESSFUL_PUSH_STATUSES = setOf(Status.OK, Status.UP_TO_DATE, Status.NON_EXISTING)
+
+        init {
+            // Enable support for an SSH agent for those who use passphrases for their keys
+            SshSessionFactory.setInstance(
+                object : JschConfigSessionFactory() {
+                    override fun configureJSch(jsch: JSch) {
+                        val agent = AgentIdentityRepository(SSHAgentConnector())
+                        if (agent.status == IdentityRepository.RUNNING) {
+                            jsch.identityRepository = agent
+                        }
+                    }
+                },
+            )
+        }
     }
 }
 
