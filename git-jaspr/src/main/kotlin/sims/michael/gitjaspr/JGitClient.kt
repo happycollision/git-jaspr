@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
-import java.time.ZonedDateTime
+import java.time.ZonedDateTime.ofInstant
 
 class JGitClient(
     override val workingDirectory: File,
@@ -292,13 +292,14 @@ class JGitClient(
 private fun RevCommit.toCommit(git: Git): Commit {
     val r = git.repository
     val objectReader = r.newObjectReader()
+    fun PersonIdent.whenAsZonedDateTime() = ofInstant(whenAsInstant, ZoneId.systemDefault()).canonicalize()
     return Commit(
         objectReader.abbreviate(id).name(),
         shortMessage,
         fullMessage,
         CommitParsers.getFooters(fullMessage)[COMMIT_ID_LABEL],
         Ident(committerIdent.name, committerIdent.emailAddress),
-        ZonedDateTime.ofInstant(committerIdent.`when`.toInstant(), ZoneId.systemDefault()),
-        ZonedDateTime.ofInstant(authorIdent.`when`.toInstant(), ZoneId.systemDefault()),
+        committerIdent.whenAsZonedDateTime(),
+        authorIdent.whenAsZonedDateTime(),
     )
 }

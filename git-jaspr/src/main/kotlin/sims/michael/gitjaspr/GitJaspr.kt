@@ -8,6 +8,7 @@ import sims.michael.gitjaspr.GitJaspr.StatusBits.Status.*
 import sims.michael.gitjaspr.RemoteRefEncoding.REV_NUM_DELIMITER
 import sims.michael.gitjaspr.RemoteRefEncoding.buildRemoteRef
 import sims.michael.gitjaspr.RemoteRefEncoding.getRemoteRefParts
+import java.time.ZonedDateTime
 import kotlin.text.RegexOption.IGNORE_CASE
 import kotlin.time.Duration.Companion.seconds
 
@@ -568,3 +569,6 @@ fun <T : Any> Iterable<T>.windowedPairs(): List<Pair<T?, T>> {
         addAll(iter.windowed(2).map { (prev, current) -> prev to current })
     }
 }
+
+/** Convert [ZonedDateTime] to the simplest representation as an offset from UTC. */
+fun ZonedDateTime.canonicalize(): ZonedDateTime = toOffsetDateTime().toZonedDateTime()
