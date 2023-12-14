@@ -76,7 +76,7 @@ class JGitClient(
 
     override fun logAll(): List<Commit> {
         logger.trace("logAll")
-        return useGit { git -> git.log().all().call().map { it.toCommit(git) }.reversed() }
+        return useGit { git -> git.log().all().call().map { it.toCommit(git) }.sortedBy(Commit::hash) }
     }
 
     override fun getParents(commit: Commit): List<Commit> = useGit { git ->
