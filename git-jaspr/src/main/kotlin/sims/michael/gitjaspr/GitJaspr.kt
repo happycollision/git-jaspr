@@ -2,7 +2,7 @@ package sims.michael.gitjaspr
 
 import kotlinx.coroutines.delay
 import org.slf4j.LoggerFactory
-import sims.michael.gitjaspr.CommitFooters.trimFooters
+import sims.michael.gitjaspr.CommitParsers.trimFooters
 import sims.michael.gitjaspr.GitJaspr.StatusBits.Status
 import sims.michael.gitjaspr.GitJaspr.StatusBits.Status.*
 import sims.michael.gitjaspr.RemoteRefEncoding.REV_NUM_DELIMITER

@@ -1,6 +1,6 @@
 package sims.michael.gitjaspr
 
-object CommitFooters {
+object CommitParsers {
     fun addFooters(fullMessage: String, footers: Map<String, String>): String {
         val existingFooters = getFooters(fullMessage)
         return if (existingFooters.isNotEmpty()) {

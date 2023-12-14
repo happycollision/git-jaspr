@@ -1,12 +1,12 @@
 package sims.michael.gitjaspr
 
 import org.junit.jupiter.api.Test
-import sims.michael.gitjaspr.CommitFooters.addFooters
-import sims.michael.gitjaspr.CommitFooters.getFooters
-import sims.michael.gitjaspr.CommitFooters.trimFooters
+import sims.michael.gitjaspr.CommitParsers.addFooters
+import sims.michael.gitjaspr.CommitParsers.getFooters
+import sims.michael.gitjaspr.CommitParsers.trimFooters
 import kotlin.test.assertEquals
 
-class CommitFootersTest {
+class CommitParsersTest {
 
     @Test
     fun `getFooters - subject only`() {

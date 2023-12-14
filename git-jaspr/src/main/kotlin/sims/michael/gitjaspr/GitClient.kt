@@ -16,8 +16,8 @@ import org.eclipse.jgit.transport.RemoteRefUpdate.Status
 import org.eclipse.jgit.transport.SshSessionFactory
 import org.eclipse.jgit.transport.ssh.jsch.JschConfigSessionFactory
 import org.slf4j.LoggerFactory
-import sims.michael.gitjaspr.CommitFooters.addFooters
-import sims.michael.gitjaspr.CommitFooters.getFooters
+import sims.michael.gitjaspr.CommitParsers.addFooters
+import sims.michael.gitjaspr.CommitParsers.getFooters
 import sims.michael.gitjaspr.GitClient.Companion.HEAD
 import sims.michael.gitjaspr.GitClient.Companion.R_HEADS
 import sims.michael.gitjaspr.RemoteRefEncoding.DEFAULT_REMOTE_BRANCH_PREFIX
