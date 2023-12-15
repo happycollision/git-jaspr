@@ -19,7 +19,7 @@ version maybe?) and install it into your `PATH` somewhere (`~/.local/bin`?) and 
 github-token=<GH PAT>
 ```
 
-Where `<GH PAT>` is a GitHub Personal Access Token (classic) with the permissions `read:org`, `read:user`, and 
+Where `<GH PAT>` is a GitHub Personal Access Token (classic) with the permissions `read:org`, `read:user`, `repo`, and 
 `user:email`.
 
 ## Using

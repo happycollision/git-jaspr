@@ -188,7 +188,7 @@ abstract class GitJasprCommand(help: String = "", hidden: Boolean = false) :
 
     private val githubToken by option(envvar = GITHUB_TOKEN_ENV_VAR).required().help {
         """
-        A GitHub PAT (personal access token) with read:org, read:user, and user:email permissions. Can be provided 
+        A GitHub PAT (personal access token) with read:org, read:user, repo, and user:email permissions. Can be provided 
         via the per-user config file, a per-working copy config file, or the environment variable 
         $GITHUB_TOKEN_ENV_VAR.
         """.trimIndent()
