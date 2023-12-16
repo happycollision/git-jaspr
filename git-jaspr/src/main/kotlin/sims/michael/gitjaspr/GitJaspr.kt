@@ -17,6 +17,7 @@ class GitJaspr(
     private val gitClient: GitClient,
     private val config: Config,
     private val newUuid: () -> String = { generateUuid() },
+    private val commitIdentOverride: Ident? = null,
 ) {
 
     private val logger = LoggerFactory.getLogger(GitJaspr::class.java)
@@ -478,10 +479,10 @@ class GitJaspr(
             val refName = "${missing.first().hash}^"
             gitClient.reset(refName)
             for (commit in missing) {
-                gitClient.cherryPick(commit)
+                gitClient.cherryPick(commit, commitIdentOverride)
                 if (commit.id == null) {
                     val commitId = newUuid()
-                    gitClient.setCommitId(commitId)
+                    gitClient.setCommitId(commitId, commitIdentOverride)
                 }
             }
             return null

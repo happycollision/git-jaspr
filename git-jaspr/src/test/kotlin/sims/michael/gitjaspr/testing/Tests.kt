@@ -1,5 +1,6 @@
 package sims.michael.gitjaspr.testing
 
+import sims.michael.gitjaspr.Ident
 import java.io.File
 
 /**
@@ -7,3 +8,5 @@ import java.io.File
  * clickable when it appears in the test output window.
  */
 fun File.toStringWithClickableURI(): String = "$this (${toURI().toString().replaceFirst("/", "///")})"
+
+val DEFAULT_COMMITTER: Ident = Ident("Frank Grimes", "grimey@springfield.example.com")

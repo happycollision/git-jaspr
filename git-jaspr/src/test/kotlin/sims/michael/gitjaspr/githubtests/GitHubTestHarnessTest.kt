@@ -9,6 +9,7 @@ import sims.michael.gitjaspr.PullRequest
 import sims.michael.gitjaspr.RemoteRefEncoding.buildRemoteRef
 import sims.michael.gitjaspr.githubtests.GitHubTestHarness.Companion.withTestSetup
 import sims.michael.gitjaspr.githubtests.generatedtestdsl.testCase
+import sims.michael.gitjaspr.testing.DEFAULT_COMMITTER
 import kotlin.test.assertEquals
 
 class GitHubTestHarnessTest {
@@ -48,7 +49,7 @@ class GitHubTestHarnessTest {
                 assertEquals(
                     commitOne.copy(
                         shortMessage = "commit_one",
-                        committer = GitHubTestHarness.DEFAULT_COMMITTER,
+                        committer = DEFAULT_COMMITTER,
                     ),
                     commitOne,
                 )

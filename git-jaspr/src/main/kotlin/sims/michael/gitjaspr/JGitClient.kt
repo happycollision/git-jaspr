@@ -47,10 +47,10 @@ class JGitClient(
         }
     }
 
-    override fun clone(uri: String): GitClient {
+    override fun clone(uri: String, bare: Boolean): GitClient {
         logger.trace("clone {}", uri)
         return apply {
-            Git.cloneRepository().setDirectory(workingDirectory).setURI(uri).call().close()
+            Git.cloneRepository().setDirectory(workingDirectory).setURI(uri).setBare(bare).call().close()
         }
     }
 
@@ -81,7 +81,7 @@ class JGitClient(
 
     override fun logAll(): List<Commit> {
         logger.trace("logAll")
-        return useGit { git -> git.log().all().call().map { it.toCommit(git) }.sortedBy(Commit::hash) }
+        return useGit { git -> git.log().all().call().map { it.toCommit(git) }.reversed() }
     }
 
     override fun getParents(commit: Commit): List<Commit> = useGit { git ->
@@ -144,7 +144,7 @@ class JGitClient(
                 .setListMode(ListBranchCommand.ListMode.ALL)
                 .call()
                 .map {
-                    it.name.removePrefix(Constants.R_HEADS)
+                    it.name.removePrefix(Constants.R_HEADS).removePrefix(Constants.R_REMOTES)
                 }
         }
     }
@@ -207,8 +207,9 @@ class JGitClient(
         }
     }
 
-    override fun setCommitId(commitId: String) {
+    override fun setCommitId(commitId: String, commitIdent: Ident?) {
         logger.trace("setCommitId {}", commitId)
+        // JGitClient doesn't support per-commit idents, so we are ignoring the commitIdent argument intentionally
         useGit { git ->
             val r = git.repository
             val head = r.parseCommit(r.findRef(GitClient.HEAD).objectId)
@@ -221,8 +222,9 @@ class JGitClient(
         }
     }
 
-    override fun commit(message: String, footerLines: Map<String, String>): Commit {
+    override fun commit(message: String, footerLines: Map<String, String>, commitIdent: Ident?): Commit {
         logger.trace("commit {} {}", message, footerLines)
+        // JGitClient doesn't support per-commit idents, so we are ignoring the commitIdent argument intentionally
         return useGit { git ->
             val committer = PersonIdent(PersonIdent(git.repository), Instant.now())
             git.commit().setMessage(CommitParsers.addFooters(message, footerLines)).setCommitter(committer).call()
@@ -230,8 +232,9 @@ class JGitClient(
         }
     }
 
-    override fun cherryPick(commit: Commit): Commit {
+    override fun cherryPick(commit: Commit, commitIdent: Ident?): Commit {
         logger.trace("cherryPick {}", commit)
+        // JGitClient doesn't support per-commit idents, so we are ignoring the commitIdent argument intentionally
         return useGit { git ->
             git.cherryPick().include(git.repository.resolve(commit.hash)).call().newHead.toCommit(git)
         }

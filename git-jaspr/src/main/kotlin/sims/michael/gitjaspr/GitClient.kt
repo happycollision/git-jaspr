@@ -8,7 +8,7 @@ interface GitClient {
     val remoteBranchPrefix: String
     fun init(): GitClient
     fun checkout(refName: String): GitClient
-    fun clone(uri: String): GitClient
+    fun clone(uri: String, bare: Boolean = false): GitClient
     fun fetch(remoteName: String)
     fun log(): List<Commit>
     fun log(revision: String, maxCount: Int = -1): List<Commit>
@@ -25,9 +25,11 @@ interface GitClient {
     fun branch(name: String, startPoint: String = "HEAD", force: Boolean = false): Commit?
     fun deleteBranches(names: List<String>, force: Boolean = false): List<String>
     fun add(filePattern: String): GitClient
-    fun setCommitId(commitId: String)
-    fun commit(message: String, footerLines: Map<String, String> = emptyMap()): Commit
-    fun cherryPick(commit: Commit): Commit
+    fun setCommitId(commitId: String, commitIdent: Ident? = null)
+    fun commit(message: String, footerLines: Map<String, String> = emptyMap(), commitIdent: Ident? = null): Commit
+    fun cherryPick(commit: Commit, commitIdent: Ident? = null): Commit
+
+    // TODO this should accept the remote to push to!
     fun push(refSpecs: List<RefSpec>)
     fun getRemoteUriOrNull(remoteName: String): String?
 
