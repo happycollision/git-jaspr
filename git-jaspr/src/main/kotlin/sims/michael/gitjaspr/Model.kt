@@ -106,4 +106,8 @@ fun GetRepositoryIdRateLimit.toCanonicalRateLimitInfo(): GitHubRateLimitInfo =
 private fun String.iso8601ToLocalDate(): LocalDateTime =
     Instant.parse(this).atZone(ZoneId.systemDefault()).toLocalDateTime()
 
-class GitJasprException(override val message: String) : RuntimeException(message)
+class GitJasprException(override val message: String) : RuntimeException(message) {
+    constructor(message: String, cause: Throwable) : this(message) {
+        initCause(cause)
+    }
+}

@@ -280,6 +280,7 @@ abstract class GitJasprCommand(help: String = "", hidden: Boolean = false) :
             try {
                 doRun()
             } catch (e: GitJasprException) {
+                logger.error("An error occurred", e)
                 printError(e)
             } catch (e: Exception) {
                 logger.logUnhandledException(e, logFile)

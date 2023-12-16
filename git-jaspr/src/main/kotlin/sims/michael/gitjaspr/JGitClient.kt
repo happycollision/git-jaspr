@@ -8,6 +8,7 @@ import org.eclipse.jgit.api.CheckoutResult
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.api.ListBranchCommand
 import org.eclipse.jgit.api.ResetCommand
+import org.eclipse.jgit.api.errors.TransportException
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.lib.PersonIdent
 import org.eclipse.jgit.revwalk.RevCommit
@@ -55,7 +56,11 @@ class JGitClient(
 
     override fun fetch(remoteName: String) {
         logger.trace("fetch {}", remoteName)
-        useGit { git -> git.fetch().setRemote(remoteName).call() }
+        try {
+            useGit { git -> git.fetch().setRemote(remoteName).call() }
+        } catch (e: TransportException) {
+            throw GitJasprException("Failed to fetch from $remoteName; consider enabling the CLI git client", e)
+        }
     }
 
     override fun log(): List<Commit> {
