@@ -282,6 +282,16 @@ class GitJaspr(
                 break
             }
             print(getStatusString(refSpec))
+
+            if (statuses.any { status -> status.checksPass == false }) {
+                logger.warn("Checks are failing. Aborting auto-merge.")
+                break
+            }
+            if (statuses.any { status -> status.approved == false }) {
+                logger.warn("PRs are not approved. Aborting auto-merge.")
+                break
+            }
+
             logger.info("Delaying for $pollingIntervalSeconds seconds... (CTRL-C to cancel)")
             delay(pollingIntervalSeconds.seconds)
         }
