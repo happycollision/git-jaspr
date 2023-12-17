@@ -17,6 +17,7 @@ import org.eclipse.jgit.transport.RemoteRefUpdate
 import org.eclipse.jgit.transport.SshSessionFactory
 import org.eclipse.jgit.transport.ssh.jsch.JschConfigSessionFactory
 import org.slf4j.LoggerFactory
+import sims.michael.gitjaspr.RemoteRefEncoding.getRemoteRefParts
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
@@ -171,8 +172,9 @@ class JGitClient(
         logger.trace("getRemoteBranchesById")
         return getRemoteBranches()
             .mapNotNull { branch ->
-                val commitId = RemoteRefEncoding.getCommitIdFromRemoteRef(branch.name, remoteBranchPrefix)
-                if (commitId != null) commitId to branch else null
+                getRemoteRefParts(branch.name, remoteBranchPrefix)
+                    ?.takeIf { parts -> parts.revisionNum == null } // Filter history branches
+                    ?.let { it.commitId to branch }
             }
             .toMap()
     }

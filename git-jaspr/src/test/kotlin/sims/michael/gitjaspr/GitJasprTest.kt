@@ -679,6 +679,95 @@ interface GitJasprTest {
             )
         }
     }
+
+    @Test
+    fun `status with out of date commit`() {
+        withTestSetup(useFakeRemote, rollBackChanges = false) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            remoteRefs += buildRemoteRef("one")
+                            willPassVerification = true
+                        }
+                        commit {
+                            title = "two"
+                            remoteRefs += buildRemoteRef("two")
+                            willPassVerification = true
+                        }
+                        commit {
+                            title = "three"
+                            remoteRefs += buildRemoteRef("three")
+                            willPassVerification = true
+                        }
+                        commit {
+                            title = "four"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("four")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
+                        title = "two"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("four")
+                        baseRef = buildRemoteRef("three")
+                        title = "four"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                },
+            )
+
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                        }
+                        commit {
+                            title = "four"
+                            willPassVerification = true
+                            localRefs += "development"
+                        }
+                    }
+                },
+            )
+
+            val actual = getAndPrintStatusString(RefSpec("development", "main"))
+            assertEquals(
+                """
+                    |[✅✅✅✅✅] %s : one
+                    |[⚠️✅✅✅➖] %s : three
+                    |[⚠️✅✅✅➖] %s : four
+                """
+                    .trimMargin()
+                    .toStatusString(actual),
+                actual,
+            )
+        }
+    }
     //endregion
 
     //region push tests
@@ -2187,6 +2276,93 @@ E
             assertEquals(
                 setOf(buildRemoteRef("c") to "main"),
                 gitHub.getPullRequests().map { it.headRefName to it.baseRefName }.toSet(),
+            )
+        }
+    }
+
+    @Test
+    fun `merge with out of date commit`() {
+        withTestSetup(useFakeRemote, rollBackChanges = false) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            remoteRefs += buildRemoteRef("one")
+                            willPassVerification = true
+                        }
+                        commit {
+                            title = "two"
+                            remoteRefs += buildRemoteRef("two")
+                            willPassVerification = true
+                        }
+                        commit {
+                            title = "three"
+                            remoteRefs += buildRemoteRef("three")
+                            willPassVerification = true
+                        }
+                        commit {
+                            title = "four"
+                            willPassVerification = true
+                            remoteRefs += buildRemoteRef("four")
+                            localRefs += "development"
+                        }
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("one")
+                        baseRef = "main"
+                        title = "one"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("two")
+                        baseRef = buildRemoteRef("one")
+                        title = "two"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("three")
+                        baseRef = buildRemoteRef("two")
+                        title = "three"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                    pullRequest {
+                        headRef = buildRemoteRef("four")
+                        baseRef = buildRemoteRef("three")
+                        title = "four"
+                        willBeApprovedByUserKey = "michael"
+                    }
+                },
+            )
+
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            willPassVerification = true
+                        }
+                        commit {
+                            title = "three"
+                            willPassVerification = true
+                        }
+                        commit {
+                            title = "four"
+                            willPassVerification = true
+                            localRefs += "development"
+                        }
+                    }
+                },
+            )
+
+            waitForChecksToConclude("one", "two", "three", "four")
+            merge(RefSpec("development", "main"))
+            assertEquals(
+                // One was merged, leaving three and four unmerged
+                listOf("three", "four"),
+                localGit
+                    .getLocalCommitStack(DEFAULT_REMOTE_NAME, "development", DEFAULT_TARGET_REF)
+                    .map(Commit::shortMessage),
             )
         }
     }

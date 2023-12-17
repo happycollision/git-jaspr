@@ -3,6 +3,7 @@ package sims.michael.gitjaspr
 import org.slf4j.LoggerFactory
 import org.zeroturnaround.exec.ProcessExecutor
 import org.zeroturnaround.exec.ProcessResult
+import sims.michael.gitjaspr.RemoteRefEncoding.getRemoteRefParts
 import java.io.File
 
 class CliGitClient(
@@ -117,8 +118,12 @@ class CliGitClient(
     override fun getRemoteBranchesById(): Map<String, RemoteBranch> {
         logger.trace("getRemoteBranchesById")
         return getRemoteBranches()
-            .filter { branch -> branch.commit.id != null }
-            .associateBy { branch -> checkNotNull(branch.commit.id) }
+            .mapNotNull { branch ->
+                getRemoteRefParts(branch.name, remoteBranchPrefix)
+                    ?.takeIf { parts -> parts.revisionNum == null } // Filter history branches
+                    ?.let { it.commitId to branch }
+            }
+            .toMap()
     }
 
     override fun reset(refName: String): GitClient {

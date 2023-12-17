@@ -38,7 +38,11 @@ class GitJaspr(
             for (status in statuses) {
                 append("[")
                 val statusBits = StatusBits(
-                    commitIsPushed = if (status.remoteCommit != null) SUCCESS else EMPTY,
+                    commitIsPushed = when {
+                        status.remoteCommit == null -> EMPTY
+                        status.remoteCommit.hash == status.localCommit.hash -> SUCCESS
+                        else -> WARNING
+                    },
                     pullRequestExists = if (status.pullRequest != null) SUCCESS else EMPTY,
                     checksPass = when {
                         status.pullRequest == null -> EMPTY
@@ -174,9 +178,13 @@ class GitJaspr(
 
         val statuses = getRemoteCommitStatuses(stack)
 
-        // Do a "stack check"... find the first commit that either isn't approved or fails checks, and the one before
-        // it is the last mergeable commit.
-        val firstIndexNotMergeable = statuses.indexOfFirst { it.approved != true || it.checksPass != true }
+        // Do a "stack check"... find the first commit that isn't pushed, is out of date, isn't approved, or fails
+        // checks, and the one before is the last mergeable commit.
+        val firstIndexNotMergeable = statuses
+            .indexOfFirst { status ->
+                status.remoteCommit == null || status.remoteCommit.hash != status.localCommit.hash ||
+                    status.approved != true || status.checksPass != true
+            }
         val indexLastMergeable = if (firstIndexNotMergeable == -1) {
             statuses.lastIndex
         } else {
