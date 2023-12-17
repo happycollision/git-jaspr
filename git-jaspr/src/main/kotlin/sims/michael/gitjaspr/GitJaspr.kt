@@ -31,6 +31,12 @@ class GitJaspr(
         if (stack.isEmpty()) return "Stack is empty.\n"
 
         val statuses = getRemoteCommitStatuses(stack)
+        val commitsWithDuplicateIds = statuses
+            .groupingBy { status -> checkNotNull(status.localCommit.id) }
+            .aggregate { _, accumulator: List<RemoteCommitStatus>?, element, _ ->
+                (accumulator ?: emptyList()) + element
+            }
+            .filter { (_, statuses) -> statuses.size > 1 }
         val numCommitsBehind = gitClient.logRange(stack.last().hash, "$remoteName/${refSpec.remoteRef}").size
         return buildString {
             append(HEADER)
@@ -39,9 +45,10 @@ class GitJaspr(
                 append("[")
                 val statusBits = StatusBits(
                     commitIsPushed = when {
+                        commitsWithDuplicateIds.containsKey(checkNotNull(status.localCommit.id)) -> WARNING
                         status.remoteCommit == null -> EMPTY
-                        status.remoteCommit.hash == status.localCommit.hash -> SUCCESS
-                        else -> WARNING
+                        status.remoteCommit.hash != status.localCommit.hash -> WARNING
+                        else -> SUCCESS
                     },
                     pullRequestExists = if (status.pullRequest != null) SUCCESS else EMPTY,
                     checksPass = when {
@@ -77,6 +84,15 @@ class GitJaspr(
                 append("You'll need to rebase it (`git rebase $remoteName/${refSpec.remoteRef}`) ")
                 appendLine("before your stack will be mergeable.")
             }
+            if (commitsWithDuplicateIds.isNotEmpty()) {
+                appendLine()
+                appendLine("Some commits in your local stack have duplicate IDs:")
+                for ((id, statusList) in commitsWithDuplicateIds) {
+                    appendLine("- $id: (${statusList.joinToString(", ") { it.localCommit.shortMessage }})")
+                }
+                appendLine("This is likely because you've based new commit messages off of those from other commits.")
+                appendLine("Please correct this by amending the commits and deleting the commit-id lines, then retry your operation.")
+            }
         }
     }
 
@@ -94,6 +110,18 @@ class GitJaspr(
         val targetRef = refSpec.remoteRef
         fun getLocalCommitStack() = gitClient.getLocalCommitStack(remoteName, refSpec.localRef, targetRef)
         val stack = addCommitIdsToLocalStack(getLocalCommitStack()) ?: getLocalCommitStack()
+
+        val commitsWithDuplicateIds = stack
+            .groupingBy { checkNotNull(it.id) }
+            .aggregate { _, accumulator: List<Commit>?, element, _ ->
+                (accumulator ?: emptyList()) + element
+            }
+            .filter { (_, commits) -> commits.size > 1 }
+        if (commitsWithDuplicateIds.isNotEmpty()) {
+            logger.error("Refusing to push because some commits in your stack have duplicate IDs.")
+            logger.error("Run `git jaspr status` to see which commits are affected.")
+            return
+        }
 
         val pullRequests = checkSinglePullRequestPerCommit(ghClient.getPullRequests(stack))
         val pullRequestsRebased = pullRequests.updateBaseRefForReorderedPrsIfAny(stack, refSpec.remoteRef)

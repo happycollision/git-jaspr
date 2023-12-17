@@ -768,6 +768,48 @@ interface GitJasprTest {
             )
         }
     }
+
+    @Test
+    fun `status with two commits sharing same commit id`() {
+        withTestSetup(useFakeRemote, rollBackChanges = false) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            id = "a"
+                        }
+                        commit {
+                            title = "two"
+                            id = "a"
+                        }
+                        commit {
+                            title = "three"
+                            id = "c"
+                            localRefs += "main"
+                        }
+                    }
+                },
+            )
+
+            val actual = getAndPrintStatusString()
+            assertEquals(
+                """
+                    |[⚠️➖➖➖➖] one
+                    |[⚠️➖➖➖➖] two
+                    |[➖➖➖➖➖] three
+                    |
+                    |Some commits in your local stack have duplicate IDs:
+                    |- a: (one, two)
+                    |This is likely because you've based new commit messages off of those from other commits.
+                    |Please correct this by amending the commits and deleting the commit-id lines, then retry your operation.
+                """
+                    .trimMargin()
+                    .toStatusString(actual),
+                actual,
+            )
+        }
+    }
     //endregion
 
     //region push tests
@@ -1271,6 +1313,35 @@ commit-id: 0
             val headCommit = localGit.log(GitClient.HEAD, 1).single()
             val headCommitId = checkNotNull(headCommit.id)
             assertEquals("four", remotePrs.single { it.commitId == headCommitId }.title)
+        }
+    }
+
+    @Test
+    fun `push with two commits sharing same commit id`() {
+        withTestSetup(useFakeRemote, rollBackChanges = false) {
+            createCommitsFrom(
+                testCase {
+                    repository {
+                        commit {
+                            title = "one"
+                            id = "a"
+                        }
+                        commit {
+                            title = "two"
+                            id = "a"
+                        }
+                        commit {
+                            title = "three"
+                            id = "c"
+                            localRefs += "main"
+                        }
+                    }
+                },
+            )
+
+            push()
+            // No assert here... I'm basically just testing that this doesn't throw an unhandled error, like it would
+            // if we tried to push multiple source refs to the same destination ref
         }
     }
     //endregion
