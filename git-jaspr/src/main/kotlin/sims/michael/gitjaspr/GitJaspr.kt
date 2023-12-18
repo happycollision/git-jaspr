@@ -163,6 +163,7 @@ class GitJaspr(
                     isDraft = isDraftRegex.matches(currentCommit.shortMessage),
                 )
             }
+            .withUpdatedDescriptions(stack)
             .filter { pr -> existingPrsByCommitId[pr.commitId] != pr }
 
         for (pr in prsToMutate) {
@@ -335,8 +336,19 @@ class GitJaspr(
 
     private suspend fun updateDescriptions(stack: List<Commit>, prsToMutate: List<PullRequest>) {
         logger.trace("updateDescriptions {} {}", stack, prsToMutate)
+        val prs = ghClient.getPullRequests(stack)
+        val prsNeedingBodyUpdate = prs.withUpdatedDescriptions(stack)
+        for (pr in prsNeedingBodyUpdate) {
+            ghClient.updatePullRequest(pr)
+        }
+        logger.info("Updated descriptions for {} pull request(s)", prsToMutate.size)
+    }
+
+    private fun List<PullRequest>.withUpdatedDescriptions(
+        stack: List<Commit>,
+    ): List<PullRequest> {
+        val prsById = associateBy { checkNotNull(it.commitId) }
         val stackById = stack.associateBy(Commit::id)
-        val prsById = ghClient.getPullRequests(stack).associateBy { checkNotNull(it.commitId) }
         val stackPrsReordered = stack.fold(emptyList<PullRequest>()) { prs, commit ->
             prs + checkNotNull(prsById[checkNotNull(commit.id)])
         }
@@ -353,10 +365,7 @@ class GitJaspr(
                 existingPr.copy(body = newBody)
             }
         logger.debug("{}", stack)
-        for (pr in prsNeedingBodyUpdate) {
-            ghClient.updatePullRequest(pr)
-        }
-        logger.info("Updated descriptions for {} pull request(s)", prsToMutate.size)
+        return prsNeedingBodyUpdate
     }
 
     private fun buildPullRequestBody(

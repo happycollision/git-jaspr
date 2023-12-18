@@ -81,7 +81,48 @@ data class PullRequest(
         return "PR$numberString($headToBaseString, title=$title, id=$id)"
     }
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as PullRequest
+
+        if (id != other.id) return false.also { println("FLUBBER id") }
+        if (commitId != other.commitId) return false.also { println("FLUBBER commitId") }
+        if (number != other.number) return false.also { println("FLUBBER number") }
+        if (headRefName != other.headRefName) return false.also { println("FLUBBER headrefname") }
+        if (baseRefName != other.baseRefName) return false.also { println("FLUBBER baserefname") }
+        if (title != other.title) return false.also { println("FLUBBER title") }
+        if (body != other.body) return false.also { println("FLUBBER body") }
+        if (checksPass != other.checksPass) return false.also { println("FLUBBER checkspass") }
+        if (approved != other.approved) return false.also { println("FLUBBER approved") }
+        if (checkConclusionStates != other.checkConclusionStates) return false.also { println("FLUBBER checkConclusionStates") }
+        if (permalink != other.permalink) return false.also { println("FLUBBER permalink") }
+        if (isDraft != other.isDraft) return false.also { println("FLUBBER isdraft") }
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = id?.hashCode() ?: 0
+        result = 31 * result + (commitId?.hashCode() ?: 0)
+        result = 31 * result + (number ?: 0)
+        result = 31 * result + headRefName.hashCode()
+        result = 31 * result + baseRefName.hashCode()
+        result = 31 * result + title.hashCode()
+        result = 31 * result + body.hashCode()
+        result = 31 * result + (checksPass?.hashCode() ?: 0)
+        result = 31 * result + (approved?.hashCode() ?: 0)
+        result = 31 * result + checkConclusionStates.hashCode()
+        result = 31 * result + (permalink?.hashCode() ?: 0)
+        result = 31 * result + isDraft.hashCode()
+        return result
+    }
+
     val headToBaseString: String get() = "$headRefName -> $baseRefName"
+
+
+
 }
 
 data class GitHubRateLimitInfo(
