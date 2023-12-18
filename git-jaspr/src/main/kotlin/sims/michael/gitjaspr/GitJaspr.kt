@@ -163,6 +163,8 @@ class GitJaspr(
                     isDraft = isDraftRegex.matches(currentCommit.shortMessage),
                 )
             }
+            // Second pass to update descriptions with information about the stack
+            .updateDescriptionsWithStackInfo(stack)
             .filter { pr -> existingPrsByCommitId[pr.commitId] != pr }
 
         for (pr in prsToMutate) {
@@ -176,9 +178,15 @@ class GitJaspr(
         }
         logger.info("Updated {} pull request(s)", prsToMutate.size)
 
-        // Update pull request descriptions (has to be done in a second pass because we don't have the GH-assigned PR
-        // numbers until the first creation pass)
-        updateDescriptions(stack, prsToMutate)
+        // Update pull request descriptions second pass. This is necessary because we don't have the GH-assigned PR
+        // numbers for new PRs until after we create them.
+        logger.trace("updateDescriptions second pass {} {}", stack, prsToMutate)
+        val prs = ghClient.getPullRequests(stack)
+        val prsNeedingBodyUpdate = prs.updateDescriptionsWithStackInfo(stack)
+        for (pr in prsNeedingBodyUpdate) {
+            ghClient.updatePullRequest(pr)
+        }
+        logger.info("Updated descriptions for {} pull request(s)", prsToMutate.size)
     }
 
     suspend fun merge(refSpec: RefSpec) {
@@ -333,10 +341,9 @@ class GitJaspr(
         check(hook.setExecutable(true)) { "Failed to set the executable bit on $hook" }
     }
 
-    private suspend fun updateDescriptions(stack: List<Commit>, prsToMutate: List<PullRequest>) {
-        logger.trace("updateDescriptions {} {}", stack, prsToMutate)
+    private fun List<PullRequest>.updateDescriptionsWithStackInfo(stack: List<Commit>): List<PullRequest> {
+        val prsById = associateBy { checkNotNull(it.commitId) }
         val stackById = stack.associateBy(Commit::id)
-        val prsById = ghClient.getPullRequests(stack).associateBy { checkNotNull(it.commitId) }
         val stackPrsReordered = stack.fold(emptyList<PullRequest>()) { prs, commit ->
             prs + checkNotNull(prsById[checkNotNull(commit.id)])
         }
@@ -353,10 +360,7 @@ class GitJaspr(
                 existingPr.copy(body = newBody)
             }
         logger.debug("{}", stack)
-        for (pr in prsNeedingBodyUpdate) {
-            ghClient.updatePullRequest(pr)
-        }
-        logger.info("Updated descriptions for {} pull request(s)", prsToMutate.size)
+        return prsNeedingBodyUpdate
     }
 
     private fun buildPullRequestBody(
